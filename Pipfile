@@ -1,0 +1,13 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+# (empty — runtime deps go in pyproject.toml instead)
+
+[dev-packages]
+# (empty)
+
+[requires]
+python_version = "3.10"
