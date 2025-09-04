@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evrpy"
-version = "0.0.1"
+version = "0.0.2"
 description = "Python wrapper for Evrmore RPC CLI"
 readme = "README.md"
 authors = [{ name = "neubtrino", email = "neubtrino_evrmore@proton.me" }]
