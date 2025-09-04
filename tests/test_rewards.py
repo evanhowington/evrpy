@@ -79,8 +79,8 @@ def test_listsnapshotrequest():
         block_height=1179625
     )
 if __name__ == "__main__":
-    # test_cancelsnapshotrequest()
-    # test_distributereward()
-    # test_requestsnapshot()
-    # test_getdistributestatus()
+    test_cancelsnapshotrequest()
+    test_distributereward()
+    test_requestsnapshot()
+    test_getdistributestatus()
     test_getsnapshotrequest()

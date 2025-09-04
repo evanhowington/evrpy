@@ -19,7 +19,9 @@ def test_addtagtoaddress():
 
     result = rpc.addtagtoaddress(
         tag_name="#KYCAML",
-        to_address="n4bpZEyAm2hbhNPoKWicf82C4RX44Ung4Z",
+        to_address="mnG4CQb4eSPz9PRkHSsgtqGsNi88b3iJ6L",
+        change_address=None,
+        asset_data="QmcUqJaj6QjALDPgwCX14a7bVZDKA954gBptkd699LpLQL"
     )
 
     print(f"txid:\n{result}")
@@ -195,7 +197,7 @@ def test_unfreezerestrictedasset():
 
 
 if __name__ == "__main__":
-   # test_addtagtoaddress()
+   test_addtagtoaddress()
     # test_checkaddressrestriction()
     # test_checkaddresstag()
     # test_checkglobalrestriction()
@@ -213,4 +215,4 @@ if __name__ == "__main__":
     # test_removetagfromaddress()
     # test_transferqualifier()
     # test_unfreezeaddress()
-    test_unfreezerestrictedasset()
+    # test_unfreezerestrictedasset()

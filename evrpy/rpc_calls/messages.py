@@ -53,298 +53,155 @@ class MessagesRPC:
 
     def clearmessages(self):
         """
-        Delete the current message database from the Evrmore node.
-
-        Executes the `clearmessages` RPC command via the Evrmore CLI. This permanently deletes
-        all stored messages in the node’s message system.
+        Delete the current database of messages.
 
         Returns:
-            str: A success confirmation string (e.g., "Message database cleared.") or empty string if successful.
-
-            On failure, returns:
-                - {"error": "No response received."}
-                - {"error": <exception message>} if the subprocess fails
+            str: Command output if successful, or "Error: <message>" if it fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> result = rpc.clearmessages()
-            >>> isinstance(result, str) or "error" in result
-            True
+            >>> rpc.clearmessages()
+            ''
         """
-        # Build CLI command to clear messages
-        command = self._build_command() + ["clearmessages"]
+        command_list = self._build_command() + ["clearmessages"]
 
         try:
-            # Execute the command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                return result.stdout.strip()  # Return any confirmation string if present
-            else:
-                return "Message database cleared."  # Assume success on empty output
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return result.stdout.strip()
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def sendmessage(self, channel_name, ipfs_hash, expire_time=None):
+    def sendmessage(self, channel_name, ipfs_hash, expire_time=0):
         """
-        Send a message to a channel using an IPFS hash.
+        Creates and broadcasts a message transaction to the network for a channel this wallet owns.
 
-        Executes the `sendmessage` RPC command via the Evrmore CLI. This creates and broadcasts
-        a message transaction to the network for a channel owned by the wallet. The message data
-        is stored on IPFS, referenced by the given hash.
-
-        Parameters:
-            channel_name (str): The name of the message channel (asset admin). If it lacks '!', it will be added automatically.
-            ipfs_hash (str): The IPFS hash of the message content.
-            expire_time (int, optional): UTC timestamp when the message should expire.
+        Args:
+            channel_name (str): Name of the channel to send a message with.
+                                If a non-administrator asset name is given, the administrator '!' will be added automatically.
+            ipfs_hash (str): The IPFS hash of the message.
+            expire_time (int, optional): UTC timestamp of when the message expires.
+                                         Use 0 (default) for no expiration.
 
         Returns:
-            list of str: A list containing the transaction ID of the message transaction.
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            list | str:
+                - list containing the transaction ID(s) on success (parsed JSON)
+                - raw text if daemon returns non-JSON
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> tx = rpc.sendmessage("MYCHANNEL!", "QmTqu3Lk3gmTsQVtjU7rYYM37EAW4xNmbuEAp2Mjr4AV7E")
+            >>> rpc.sendmessage("ASSET_NAME!", "QmTqu3Lk3gmTsQVtjU7rYYM37EAW4xNmbuEAp2Mjr4AV7E", 15863654)
+            ['txid']
         """
-        # Construct CLI command based on whether expire_time is provided
-        # If no expire_time, use the 2-argument version of sendmessage
-        if expire_time is None:
-            command = self._build_command() + [
-                "sendmessage",             # RPC method
-                str(channel_name),         # Required: message channel (must end in '!')
-                str(ipfs_hash)             # Required: IPFS hash of the message
-            ]
-        else:
-            # If expire_time is provided, include it as a third argument
-            command = self._build_command() + [
-                "sendmessage",             # RPC method
-                str(channel_name),         # Required: message channel
-                str(ipfs_hash),            # Required: IPFS hash
-                str(expire_time)           # Optional: UTC timestamp for expiration
-            ]
+        optional_spec = [expire_time]
+        params = [channel_name, ipfs_hash] + [o if o is not None else 0 for o in optional_spec]
+
+        command_list = self._build_command() + ["sendmessage"] + list(map(str, params))
 
         try:
-            # Execute the CLI command and capture both stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the response as JSON
-                    # Expected: a JSON list containing one transaction ID (txid)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the txid as a list
-                except json.JSONDecodeError:
-                    # If the output isn't valid JSON, return the raw string for debugging
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If no output was returned, the RPC call may have failed silently
-                return {"error": "No info available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)  # handles list/dict output
+            except json.JSONDecodeError:
+                return out  # raw text fallback
         except Exception as e:
-            # If the subprocess command itself failed (e.g., CLI missing, bad args), capture the error
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def subscribetochannel(self, channel_name):
         """
-        Subscribe to a message channel by name (requires '!' or '~').
+        Subscribe to a certain message channel.
 
-        Executes the `subscribetochannel` RPC command via the Evrmore CLI.
-        Automatically appends '!' to the channel name if it's not present.
-
-        Parameters:
-            channel_name (str): The name of the channel to subscribe to.
+        Args:
+            channel_name (str): The channel name to subscribe to.
+                                Must end with '!' or contain '~'.
 
         Returns:
-            str: Success message or CLI output if present.
-
-            On failure, returns:
-                - {"error": <exception message>} if the subprocess fails
+            str: The result message from the subscription.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="...", rpc_user="...", rpc_pass="...", testnet=True)
-            >>> result = rpc.subscribetochannel("MYASSET")
+            >>> rpc.subscribetochannel("ASSET_NAME!")
+            ''
         """
-        # Ensure channel_name is a string (in case it was passed as int, etc.)
-        channel_name = str(channel_name)
-
-        # Ensure the channel name is valid:
-        # - Must end in '!' (for admin channels), unless it's a '~' channel (anonymous/pseudonymous)
-        if not channel_name.endswith("!") and "~" not in channel_name:
-            channel_name += "!"  # Append '!' if missing and not a '~' channel
-
-        # Build the CLI command to subscribe to the specified channel
-        command = self._build_command() + [
-            "subscribetochannel",  # RPC command
-            channel_name           # Properly formatted channel name
-        ]
+        command_list = self._build_command() + ["subscribetochannel", channel_name]
 
         try:
-            # Execute the CLI command and capture stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # If the command returns any output, return it
-            if result.stdout.strip():
-                return result.stdout.strip()
-
-            # If no output is returned (common for success cases), return a default confirmation message
-            else:
-                return f"Subscribed to channel: {channel_name}"
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return result.stdout.strip()
         except Exception as e:
-            # If the command fails (e.g., bad channel name, CLI error), return the exception message
-            return {"error": str(e)}
-
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def unsubscribefromchannel(self, channel_name):
         """
-        Subscribe to a message channel by name (requires '!' or '~').
+        Unsubscribe from a certain message channel.
 
-        Executes the `unsubscribefromchannel` RPC command via the Evrmore CLI.
-        Automatically appends '!' to the channel name if it's not present.
-
-        Parameters:
-            channel_name (str): The name of the channel to unsubscribe from.
+        Args:
+            channel_name (str): The channel name to unsubscribe from.
+                                Must end with '!' or contain '~'.
 
         Returns:
-            str: Success message or CLI output if present.
-
-            On failure, returns:
-                - {"error": <exception message>} if the subprocess fails
+            str: The result message from the unsubscription.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="...", rpc_user="...", rpc_pass="...", testnet=True)
-            >>> result = rpc.unsubscribetochannel("MYASSET")
+            >>> rpc.unsubscribefromchannel("ASSET_NAME!")
+            ''
         """
-        # Ensure channel_name is a string (in case the caller passed an int or other type)
-        channel_name = str(channel_name)
-
-        # Validate and normalize the channel name format:
-        # - Must end in '!' for administrator channels, unless it's a '~' pseudonymous channel
-        if not channel_name.endswith("!") and "~" not in channel_name:
-            channel_name += "!"  # Append '!' if needed to make it a valid admin channel
-
-        # Build the CLI command to unsubscribe from the specified channel
-        command = self._build_command() + [
-            "unsubscribefromchannel",  # RPC method to unsubscribe
-            channel_name               # Sanitized and formatted channel name
-        ]
+        command_list = self._build_command() + ["unsubscribefromchannel", channel_name]
 
         try:
-            # Execute the CLI command and capture stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # If the command returns output (confirmation or warning), return it as-is
-            if result.stdout.strip():
-                return result.stdout.strip()
-
-            # If there's no output, assume successful unsubscribe and return default message
-            else:
-                return f"Unsubscribed from channel: {channel_name}"
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return result.stdout.strip()
         except Exception as e:
-            # If the CLI fails (e.g., channel not found or invalid format), return the error message
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def viewallmessagechannels(self):
         """
-        View all message channels that the wallet is currently subscribed to.
-
-        Executes the `viewallmessagechannels` RPC command via the Evrmore CLI.
-        This returns a list of asset channel names (strings) that the wallet
-        is subscribed to for receiving IPFS messages.
+        View all message channels the wallet is subscribed to.
 
         Returns:
-            list of str: A list of channel names (e.g., ["MYASSET!", "~testchannel"]).
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            list: A list of asset channel names.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> channels = rpc.viewallmessagechannels()
+            >>> rpc.viewallmessagechannels()
+            ['ASSET_NAME!', 'OTHER_ASSET~channel']
         """
-        # Build the CLI command to list all subscribed message channels
-        command = self._build_command() + [
-            "viewallmessagechannels"
-        ]
+        command_list = self._build_command() + ["viewallmessagechannels"]
 
         try:
-            # Execute the CLI command and capture stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the JSON response (expected: list of strings)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If output isn't valid JSON, return the raw text for debugging
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If output is empty, treat as a failure to retrieve subscriptions
-                return {"error": "No info available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return result.stdout.strip().splitlines()
         except Exception as e:
-            # Catch and return any subprocess execution errors
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def viewallmessages(self):
         """
-        Retrieve all messages that the wallet currently contains.
+        View all messages that the wallet contains.
 
-        Executes the `viewallmessages` RPC command via the Evrmore CLI. This returns a list of
-        message entries the wallet has received through subscribed channels.
-
-        Each message contains details like:
-            - Asset channel name
-            - IPFS hash of the message
-            - Timestamp
-            - Block height
-            - Message status (e.g., READ, UNREAD, EXPIRED)
-            - Optional expiration time
+        Args:
+            None
 
         Returns:
-            list of dict: Each dict contains:
-                - "Asset Name" (str): Channel the message was sent on
-                - "Message" (str): IPFS hash of the message content
-                - "Time" (str): Timestamp in format "YY-mm-dd HH-MM-SS"
-                - "Block Height" (int): Block number where message was included
-                - "Status" (str): One of READ, UNREAD, ORPHAN, EXPIRED, SPAM, etc.
-                - Optional: "Expire Time", "Expire UTC Time" (as date strings)
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            dict | list | str:
+                - parsed JSON (dict or list) on success when daemon returns JSON
+                - raw text if daemon returns non-JSON
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> msgs = rpc.viewallmessages()
+            >>> rpc.viewallmessages()
         """
-        # Build the CLI command to fetch all messages visible to the wallet
-        command = self._build_command() + [
-            "viewallmessages"
-        ]
+        args = ["viewallmessages"]
+        command = self._build_command() + args
 
         try:
-            # Run the CLI command and capture the output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the response as JSON (expecting a list of message dicts)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output for inspection
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there's no output at all, assume a problem with node or message list
-                return {"error": "No info available.  Check your wallet/node is running."}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any CLI or subprocess-related error
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
+

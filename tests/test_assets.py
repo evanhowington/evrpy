@@ -30,7 +30,7 @@ rpc = AssetsRPC(
 )
 
 # Testnet parameters — these must be changed to valid values
-ASSET_NAME = "NEUBTRINO"
+ASSET_NAME = "NEUBTRINO_IS_DUMB"
 FROM_ADDRESS = "mjNgMNK73yeEwoCK19R6ewwpbTXuERhqpG"
 TO_ADDRESS = "n4cjbVFC8J3fWkq9x6enERbdHW1P74hr5f"
 TO_ADDRESSES = [
@@ -105,8 +105,8 @@ TOLL_ADDRESS = "n4Vv8eqPi3MV4PzjkaPZCy42dfuTrKwpdQ"  # toll paid to this address
 TOLL_AMOUNT_MUTABILITY = True  # can the toll amount be changed in the future?
 TOLL_ADDRESS_MUTABILITY = True  # can the toll address be changed in the future?
 REMINTABLE = True  # can the asset be reminted if burned?
-ROOT_NAME = ASSET_NAME
-ASSET_TAGS_LIST_1 = ["evrmore_defi", "neubtrino", "evrmore_minimal"]
+ROOT_NAME = "NEUBTRINO_IS_DUMB"
+ASSET_TAGS_LIST_1 = ["HAWK", "TURTLE", "SCORPION"]
 IPFS_HASHES_LIST_1 = ["Qmbaf8G26fzfjNE16jC95UvWDsTUMLWw7oZNySPGgNSwrV", "QmVEFJsRwhGggoJptYtBsAZtAdTjvP3xjswjT1Vf96x68M",
                "QmZEGdYa7MxambTphpABUmzrZVF5KHubGKBj37wMpb2i2w"]
 PERMANENT_IPFS_HASH_LIST_1 = ["QmYEr6kpThDYZpFFsN2xx2wkGFNMgvS6L9dK6ZdnvkhdzR",
@@ -253,37 +253,7 @@ def generate_valid_root_asset_name(length=11):
 
 
 def test_addresshasasset(assetName, address, min_quantity):
-    """
-    Tests the `addresshasasset` method of the AssetRPC class.
 
-    This function checks if a specific address holds a required quantity of a
-    given asset in the Evrmore system. It queries the address for the specified
-    asset and validates whether the quantity requirement is met.
-
-    Parameters:
-        None. (No direct parameters; uses the globally defined constants
-        `ASSET_NAME`, `FROM_ADDRESS`, and `QUANTITY`.)
-
-    Expected Behavior:
-    - Calls the `addresshasasset` RPC method with the provided asset name,
-      address, and required quantity.
-    - Returns a boolean value indicating whether the address holds the
-      required quantity of the specified asset.
-    - Prints the result to the console in a readable format.
-
-    Notes:
-    - Ensure that the `rpc` object is correctly configured and connected
-      to a running Evrmore daemon.
-    - Global constants `ASSET_NAME`, `FROM_ADDRESS`, and `QUANTITY` must be
-      defined and hold valid values.
-
-    Example Usage:
-        test_addresshasasset()
-
-    Output:
-    - Prints the result in the following format:
-        "Address has the required quantity: <True/False>"
-    """
 
 
     result = rpc.addresshasasset(
@@ -319,56 +289,21 @@ def test_addresshasasset_paramgrid():
 
 
 def test_getassetdata():
-    """
-    Tests the `getassetdata` method of the AssetRPC class.
 
-    This function retrieves and prints data associated with a specific asset
-    in the Evrmore system. The method uses the asset name to query for
-    details such as its properties, metadata, and other relevant information.
-
-    Parameters:
-        None. (No direct parameters; uses the globally defined `ASSET_NAME`
-        as input for the RPC call.)
-
-    Expected Behavior:
-    - Calls the `getassetdata` method with the globally defined `ASSET_NAME`.
-    - Returns detailed information about the asset, including attributes
-      such as name, quantity, reissuable status, and more.
-    - Prints the retrieved asset data to the console in a human-readable format.
-
-    Notes:
-    - Ensure that the `rpc` object is properly configured and connected to a
-      running Evrmore daemon.
-    - The global constant `ASSET_NAME` must be defined and contain a valid asset
-      name present in the Evrmore system.
-
-    Example Usage:
-        test_getassetdata()
-
-    Output:
-    - Prints the asset data in the following format:
-        "Asset Data Info:
-        <detailed_asset_data>"
-    """
 
 
     result = rpc.getassetdata(
         asset_name=ASSET_NAME
     )
 
-    print(f"\nAsset Data Info:\n{result['name']}\n")
+    print(f"\nAsset Data Info:\n{result}\n")
+    print(f'\niterated result')
+    for key, value in result.items():
+        print(f"{key}: {value}")
 
 
 def test_getassetdata_paramgrid():
-    """
-    Tests the `getassetdata` method across multiple asset names.
 
-    Iterates over a predefined list of asset names (`ASSETS`) and retrieves
-    the corresponding asset data, printing selected fields or errors.
-
-    Output:
-    - Prints asset data name or an error message for each asset.
-    """
     for asset_name in ASSETS:
         try:
             result = rpc.getassetdata(asset_name=asset_name)
@@ -378,129 +313,47 @@ def test_getassetdata_paramgrid():
 
 
 def test_getburnaddresses():
-    """
-    Tests the `getburnaddresses` method of the AssetRPC class.
 
-    This function retrieves and prints the list of burn addresses configured
-    in the Evrmore system. Burn addresses are special addresses where assets
-    or coins sent are effectively removed from circulation.
-
-    Parameters:
-        None. (No direct parameters; relies on the global `rpc` object
-        for the RPC call.)
-
-    Expected Behavior:
-    - Calls the `getburnaddresses` method to fetch the list of burn addresses
-      configured in the system.
-    - Prints the retrieved list of burn addresses or an error message if the
-      query fails.
-
-    Notes:
-    - Ensure that the `rpc` object is initialized and connected to a running
-      Evrmore daemon.
-    - This function does not require any prior setup or additional inputs.
-
-    Example Usage:
-        test_getburnaddresses()
-
-    Output:
-    - Prints the burn addresses in the following format:
-        "burn addresses:
-        <list_of_burn_addresses>"
-    """
 
 
     result = rpc.getburnaddresses()
 
     print(f"\nburn addresses:\n{result}")
-
+    print(f'\niterated result')
+    for key, value in result.items():
+        print(f'{key}: {value}')
 
 def test_getcacheinfo():
-    """
-    Tests the `getcacheinfo` method of the AssetRPC class.
 
-    This function retrieves and prints cache-related information from
-    the Evrmore system. The `getcacheinfo` method is used to fetch details
-    about cache utilization and related system statistics.
-
-    Parameters:
-        None. (No direct parameters; uses the `rpc` object for the RPC call.)
-
-    Expected Behavior:
-    - Successfully retrieves cache information using the RPC client's `getcacheinfo` method.
-    - Prints the retrieved cache information to the console in a human-readable format.
-
-    Notes:
-    - The `rpc` global object must be correctly configured and connected to a
-      running Evrmore daemon.
-    - This function does not require any input values.
-
-    Example Usage:
-        test_getcacheinfo()
-
-    Output:
-    - Prints the cache information in the following format:
-        "cache info:
-        <cache_info_details>"
-    """
 
 
     result = rpc.getcacheinfo()
 
     print(f"\ncache info:\n{result}\n")
-
+    print(f'\niterated result')
+    result_length = len(result)
+    for i in range(result_length):
+        for key, value in result[i].items():
+            print(f'{key}: {value}')
 
 def test_getcalculatedtoll():
-    """
-    Tests the `getcalculatedtoll` method of the AssetRPC class.
 
-    This function calculates and retrieves the toll (fee) required to send
-    a specified amount of an asset, based on the provided parameters.
-
-    Parameters:
-        None. (Uses globally defined variables for the test setup.)
-
-    Expected Behavior:
-    - Calls the `getcalculatedtoll` method with the defined asset name, amount,
-      change amount, and optional toll fee override.
-    - Returns the calculated toll amount for the specified transaction parameters.
-    - Prints the result with the asset name and amount in a human-readable format.
-
-    Notes:
-    - Ensure the `rpc` object is properly configured and connected to a
-      running Evrmore daemon.
-    - Global constants `TOLL_ASSET_NAME_1`, `AMOUNT`, `CHANGE_AMOUNT`, and
-      `OVERWRITE_TOLL_FEE` must be defined and contain valid values.
-
-    Example Usage:
-        test_getcalculatedtoll()
-
-    Output:
-    - Prints the calculated toll in the following format:
-        "Calculated Toll for sending 3 of NEUBTRINO/TOLL1 is <calculated_toll>"
-    """
 
 
     result = rpc.getcalculatedtoll(
-        asset_name=TOLL_ASSET_NAME_1,
-        amount=AMOUNT,
-        change_amount=CHANGE_AMOUNT,
-        overwrite_toll_fee=OVERWRITE_TOLL_FEE
+        asset_name="NEUBTRINO/TOLL1",
+        amount=3,
+        change_amount=0,
+        overwrite_toll_fee=1.25
     )
 
-    print(f'\nCalculated Toll for sending {AMOUNT} of {TOLL_ASSET_NAME_1} is {result}\n')
-
+    print(f'\nCalculated Toll for sending {AMOUNT} of {TOLL_ASSET_NAME_1} is\n')
+    print(f'\niterated result')
+    for key, value in result.items():
+        print(f"{key}: {value}")
 
 def test_getcalculatedtoll_paramgrid():
-    """
-    Tests the `getcalculatedtoll` method across combinations of parameters.
 
-    Iterates over a parameter grid with variations in asset name, amount,
-    change amount, and overwrite toll fee. Prints the calculated toll or errors.
-
-    Output:
-    - Prints the calculated toll amount or an error message for each combo.
-    """
     param_grid = {
         "asset_name": ASSETS,
         "amount": [1, 2, 5, 10],
@@ -525,62 +378,31 @@ def test_getcalculatedtoll_paramgrid():
         except Exception as e:
             print(f"Error for {asset_name}, amount={amount}, change={change_amount}, overwrite={overwrite_fee} -> {e}")
 
+def test_getsnapshot():
+
+    result = rpc.getsnapshot(
+        asset_name="NEUBTRINO/TOLL1",
+        block_height=1183819
+    )
+
+    print(f'snapshot: {result}')
 
 def test_issue(asset, to_address):
-    """
-    Tests the `issue` method of the AssetRPC class.
 
-    This function issues a new asset in the Evrmore system. It takes the asset
-    name and utilizes various globally defined constants to specify the
-    properties of the asset being issued, including quantity, target address,
-    reissuability, and optional settings such as IPFS hash and toll parameters.
-
-    Parameters:
-        asset (str): The name of the asset to be issued.
-
-    Expected Behavior:
-    - Calls the `issue` RPC method with details such as asset name, quantity,
-      recipient address, reissuability, and optional parameters.
-    - Returns the transaction ID (TXID) of the issued asset.
-    - Prints the transaction ID to the console indicating successful issuance.
-
-    Notes:
-    - Ensure that the `rpc` object is properly configured and connected to a
-      running Evrmore daemon.
-    - The following global constants must be defined and valid:
-        - `ISSUE_QUANTITY`: The quantity of the asset to issue.
-        - `ISSUE_TO_ADDRESS`: The address to receive the issued asset.
-        - `CHANGE_ADDRESS`: The change address for remaining quantities or fees.
-        - `ISSUE_UNITS`: Number of decimal units for the asset.
-        - `REISSUABLE`: Whether the asset is reissuable.
-        - `HAS_IPFS` and `IPFS_HASH`: Set these for assets with related IPFS data.
-        - `PERMANENT_IPFS_HASH`: Specifies if the IPFS hash is permanent.
-        - `TOLL_AMOUNT` and `TOLL_ADDRESS`: Specify toll details for asset use.
-        - `TOLL_AMOUNT_MUTABILITY` and `TOLL_ADDRESS_MUTABILITY`: Define mutability
-          for tolls.
-        - `REMINTABLE`: Indicates whether the asset can be reminted.
-
-    Example Usage:
-        test_issue("MY_ASSET")
-
-    Output:
-    - Prints the transaction ID in the following format:
-        "TXID for issuing asset <asset>: <transaction_id>"
-    """
 
 
     result = rpc.issue(
         asset_name=asset,
-        quantity=ISSUE_QUANTITY,
+        qty=ISSUE_QUANTITY,
         to_address=to_address,
-        change_address=CHANGE_ADDRESS,
+        change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
         units=ISSUE_UNITS,
         reissuable=REISSUABLE,
         has_ipfs=HAS_IPFS,
         ipfs_hash=IPFS_HASH,
         permanent_ipfs_hash=PERMANENT_IPFS_HASH,
         toll_amount=TOLL_AMOUNT,
-        toll_address=TOLL_ADDRESS,
+        toll_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
         toll_amount_mutability=TOLL_AMOUNT_MUTABILITY,
         toll_address_mutability=TOLL_ADDRESS_MUTABILITY,
         remintable=REMINTABLE
@@ -596,19 +418,19 @@ def test_issue_paramgrid():
     ISSUE_TO_ADDRESSES = FROM_ADDRESSES
     CHANGE_ADDRESSES = TO_ADDRESSES
     ISSUE_UNITS_LIST = [0,1,2,3,4,5,6,7]  # 0 through 8
-    REISSUABLE_OPTIONS = [True]
+    REISSUABLE_OPTIONS = [False, True]
     # HAS_IPFS_OPTIONS = [True, False]
-    HAS_IPFS_OPTIONS = [True]
+    HAS_IPFS_OPTIONS = [False, True]
     IPFS_HASHES = IPFS_HASHES_LIST_1
     PERMANENT_IPFS_HASHES = PERMANENT_IPFS_HASH_LIST_1
     TOLL_AMOUNTS = [1, 2, 3, 4, 5]
     TOLL_ADDRESSES = TO_ADDRESSES
     # TOLL_AMOUNT_MUTABILITIES = [True, False]
-    TOLL_AMOUNT_MUTABILITIES = [False]
+    TOLL_AMOUNT_MUTABILITIES = [False, True]
     # TOLL_ADDRESS_MUTABILITIES = [True, False]
-    TOLL_ADDRESS_MUTABILITIES = [False]
+    TOLL_ADDRESS_MUTABILITIES = [False, True]
     # REMINTABLE_OPTIONS = [True, False]
-    REMINTABLE_OPTIONS = [False]
+    REMINTABLE_OPTIONS = [False, True]
 
     param_grid = product(
         ISSUE_QUANTITIES,
@@ -640,9 +462,9 @@ def test_issue_paramgrid():
         try:
             result = rpc.issue(
                 asset_name=asset,
-                quantity=quantity,
+                qty=quantity,
                 to_address=to_address,
-                change_address=change_address,
+                change_address="mvjxkMUMmAJ6bwvhgY3gGiBTvbRW6V7kYU",
                 units=units,
                 reissuable=reissuable,
                 has_ipfs=has_ipfs,
@@ -663,48 +485,18 @@ def test_issue_paramgrid():
 
 
 def test_issueunique(assetTagList1, ipfsHashList1, permIpfsHashList2):
-    """
-    Tests the `issueunique` method of the AssetRPC class.
 
-    This function creates unique assets under a specified root name
-    with associated tags and hashes using the `issueunique` RPC call.
 
-    Parameters:
-        assetTagList1 (list of str): List of unique tags to be associated with the issued assets.
-        ipfsHashList1 (list of str): List of IPFS hashes corresponding to the unique assets.
-        permIpfsHashList2 (list of str): List of permanent IPFS hashes for the unique assets.
-
-    Expected Behavior:
-    - Successfully calls the `issueunique` RPC method with the provided parameters.
-    - Issues unique assets under the defined root name and returns the transaction ID.
-    - Prints the transaction ID of the operation to the console.
-
-    Notes:
-    - Ensure the RPC client is properly configured and connected to a Evrmore daemon
-      running in testnet mode.
-    - Update the `ROOT_NAME`, `ISSUE_TO_ADDRESS`, `CHANGE_ADDRESS`, `TOLL_ADDRESS`,
-      and other configurations before running.
-    - The lengths of `assetTagList1`, `ipfsHashList1`, and `permIpfsHashList2` must match.
-
-    Example Usage:
-        assetTagList1 = ["unique1", "unique2", "unique3"]
-        ipfsHashList1 = ["QmHash1", "QmHash2", "QmHash3"]
-        permIpfsHashList2 = ["", "", ""]
-        test_issueunique(assetTagList1, ipfsHashList1, permIpfsHashList2)
-
-    Output:
-    - Prints the transaction ID in the following format:
-        "TXID for issuing unique assets ['unique1', 'unique2', 'unique3']: <transaction_id>"
-    """
+    print(f'address has asset: {test_addresshasasset(assetName="NEUBTRINO_UNIQUE_ADMIN!", address="mxyqbZA6FdS8H2buPF7mkbmhkK9T74RXy2", min_quantity=1)}')
 
     result = rpc.issueunique(
         root_name=ROOT_NAME,
         asset_tags=assetTagList1,
         ipfs_hashes=ipfsHashList1,
-        to_address=ISSUE_TO_ADDRESS,
-        change_address=CHANGE_ADDRESS,
+        to_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
+        change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
         permanent_ipfs_hashes=permIpfsHashList2,
-        toll_address=TOLL_ADDRESS,
+        toll_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
         toll_amount=TOLL_AMOUNT,
         toll_amount_mutability=TOLL_AMOUNT_MUTABILITY,
         toll_address_mutability=TOLL_ADDRESS_MUTABILITY
@@ -756,7 +548,7 @@ def test_listaddressesbyasset():
         # asset_name="NEUBTRINO_VPS",
         # asset_name="NEUBTRINO/TOLL1",
         asset_name=ASSET_NAME,
-        only_total=ONLYTOTAL,
+        onlytotal=ONLYTOTAL,
         count=50000,
         start=0
     )
@@ -870,65 +662,7 @@ def test_listassets():
 
 
 def test_listmyassets():
-    """
-    Test function for the `listmyassets` method.
 
-    This function tests the `listmyassets` method of the `AssetRPC` class. It retrieves a filtered list
-    of assets owned by the wallet or detailed metadata about the assets based on predefined test parameters.
-    The results are printed for validation.
-
-    Parameters:
-        None. The function uses the following predefined test configurations:
-            - asset: A partial asset name for filtering (e.g., `LIST_ASSETS_PARTIAL`).
-            - verbose: Whether to retrieve detailed metadata about the assets or just balances (True).
-            - count: The maximum number of results to retrieve (e.g., `COUNT`).
-            - start: The starting index for the retrieval (e.g., `START`).
-            - confs: Minimum number of confirmations required for the assets (e.g., `CONFS`).
-
-    Returns:
-        None. The function prints the output to the console for review.
-
-    Example Output:
-        If `verbose` is False:
-        ```
-        result: {
-          "ASSET1": 500,
-          "ASSET2": 1000,
-          ...
-        }
-        ```
-
-        If `verbose` is True:
-        ```
-        result: {
-          "ASSET1": {
-            "balance": 500,
-            "outpoints": [
-              {
-                "txid": "abc...123",
-                "vout": 0,
-                "amount": 250
-              },
-              {
-                "txid": "def...456",
-                "vout": 1,
-                "amount": 250
-              }
-            ]
-          },
-          "ASSET2": {
-            "balance": 1000,
-            "outpoints": [
-              {
-                "txid": "ghi...789",
-                "vout": 0,
-                "amount": 1000
-              }
-            ]
-          }
-        }
-        ```
-    """
 
 
     result = rpc.listmyassets(
@@ -940,6 +674,9 @@ def test_listmyassets():
     )
 
     print(f"\nresult: {result}\n")
+
+    for key, value in result.items():
+        print(f'{key}: {value}')
 
 
 def test_reissue():
@@ -978,12 +715,12 @@ def test_reissue():
         reissuable=True,
         new_units=-1,
         new_ipfs="QmYEr6kpThDYZpFFsN2xx2wkGFNMgvS6L9dK6ZdnvkhdzR",
-        new_permanent_ipfs_hash="",
+        new_permanent_ipfs="",
         change_toll_amount=False,
         new_toll_amount=0,
         new_toll_address="myyxSimyWF3cCX3AuLax98rq6bSbHWCmsR",
-        new_toll_amount_mutability=True,
-        new_toll_address_mutability=True
+        toll_amount_mutability=True,
+        toll_address_mutability=True
 
     )
 
@@ -993,10 +730,10 @@ def test_reissue():
 def test_remint():
 
     result = rpc.remint(
-        asset_name="NEUBTRINO#neubtrino",
+        asset_name="NEUBTRINO_IS_DUMB",
         qty=1,
-        to_address=FROM_ADDRESS,
-        change_address=CHANGE_ADDRESS,
+        to_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
+        change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
         update_remintable=True
     )
 
@@ -1023,15 +760,14 @@ def test_transferfromaddress():
     """
 
     result = rpc.transferfromaddress(
-        asset_name=ASSET_NAME,
-        from_address=ISSUE_TO_ADDRESS,
-        # quantity=QUANTITY,
-        quantity=1,
-        to_address=TO_ADDRESS,
-        message="",  # optional, still allowed
-        expire_time=0,  # optional
-        evr_change_address=ISSUE_TO_ADDRESS,
-        asset_change_address=ISSUE_TO_ADDRESS
+        asset_name="NEUBTRINO_IS_DUMB",
+        from_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
+        qty=1,
+        to_address="mvhZvFzxaG6fu5DE7q1x7QQTjfR1nZHS1D",
+        message=None,  # optional, still allowed
+        expire_time=None,  # optional
+        evr_change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
+        asset_change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc"
     )
 
     print(f"\nTXID: {result}\n")
@@ -1040,15 +776,15 @@ def test_transferfromaddress():
 def test_transferfromaddresses(): # is this supposed to transfer qty from each address in FROM_ADDRESSES?
 
     result = rpc.transferfromaddresses(
-        asset_name=ASSET_NAME,
-        from_addresses=FROM_ADDRESSES,  # list
+        asset_name="NEUBTRINO_IS_DUMB",
+        from_addresses=["mvhZvFzxaG6fu5DE7q1x7QQTjfR1nZHS1D", "moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc"],  # list
         # from_addresses=TO_ADDRESSES,
-        qty=50,
-        to_address=TO_ADDRESS,
+        qty=2,
+        to_address="n1BurnXXXXXXXXXXXXXXXXXXXXXXU1qejP",
         message="",
         expire_time=0,
-        evr_change_address=CHANGE_ADDRESS,
-        asset_change_address=ASSET_CHANGE_ADDRESS
+        evr_change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc",
+        asset_change_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc"
     )
 
     print(f"\nTXID: {result}")
@@ -1072,17 +808,18 @@ def test_updatemetadata():
 
 
 if __name__ == "__main__":
-    test_addresshasasset("NEUBTRINO_RESTRICTED_2!", "n4bpZEyAm2hbhNPoKWicf82C4RX44Ung4Z", 1    )
+    # test_addresshasasset("NEUBTRINO_RESTRICTED_2!", "n4bpZEyAm2hbhNPoKWicf82C4RX44Ung4Z", 1    )
     # test_getassetdata()
     # test_getburnaddresses()
     # test_getcacheinfo()
     # test_getcalculatedtoll()
-    # test_issue(asset="NEUBTRINO_RESTRICTED_2", to_address="n4bpZEyAm2hbhNPoKWicf82C4RX44Ung4Z") # be sure to change asset name
+    # test_getsnapshot()
+    # test_issue(asset="NEUBTRINO_IS_DUMB", to_address="moGWRxXk8VESStxj3NH4PoqpNxgpZ9m9Lc") # be sure to change asset name
     # test_issueunique(ASSET_TAGS_LIST_1, IPFS_HASHES_LIST_1, PERMANENT_IPFS_HASH_LIST_1)
     # test_listaddressesbyasset()
     # test_listassetbalancesbyaddress()
     # test_listassets()
-    # test_listmyassets()
+    test_listmyassets()
     # test_reissue()
     # test_remint()
     # test_transferfromaddress()

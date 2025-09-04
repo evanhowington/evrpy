@@ -78,6 +78,8 @@ def test_getblock():
     for key in result:
         print(f'{key}: {result[key]}')
 
+    print(f'get block header hash:\n{result["headerhash"]}')
+
     print(f"\nTX LIST\n")
 
     # This part works with verbosity=2, not verbosity=1
@@ -119,9 +121,9 @@ def test_getblockhashes():
     result = rpc.getblockhashes(
         high=HIGH,
         low=LOW,
-        noOrphans=OPTIONS_DICT["noOrphans"],
+        no_orphans=OPTIONS_DICT["noOrphans"],
         # noOrphans=False,
-        logicalTimes=OPTIONS_DICT["logicalTimes"]
+        logical_times=OPTIONS_DICT["logicalTimes"]
         # logicalTimes = False
     )
 
@@ -137,11 +139,11 @@ def test_getblockhashes():
 def test_getblockheader():
 
     result = rpc.getblockheader(
-        hash=BLOCKHASH,
+        block_hash=BLOCKHASH,
         verbose=True
     )
 
-    # print(f'block header:\n{result}')
+    print(f'block header:\n{result}\nresult type {type(result)}')
 
     for key in result:
         print(f"{key}: {result[key]}")
@@ -227,9 +229,11 @@ def test_getmempoolentry():
         txid=mempool_ancestor_descendent_txid
     )
 
-    print(f"\nmempool entry: {mempool_ancestor_descendent_txid}")
-    for key in result:
-        print(f"{key}: {result[key]}")
+    print(f'result {result}\nresult type {type(result)}')
+
+    # print(f"\nmempool entry: {mempool_ancestor_descendent_txid}")
+    # for key in result:
+    #     print(f"{key}: {result[key]}")
 
 
 def test_getmempoolinfo():
@@ -261,7 +265,7 @@ def test_getrawmempool():
 def test_getspentinfo():
 
     result = rpc.getspentinfo(
-        txid="652bc5977e05870c578a9012b9590ee938fc7731bd27e7496cf70244982069e8",
+        txid="09e85c2ffd833cb80dabc549560d718b51b2508cc32e696e63471a7ef4407039",
         index=0
     )
 
@@ -272,7 +276,7 @@ def test_getspentinfo():
 def test_gettxout():
 
     result = rpc.gettxout(
-        txid="5360f6c0c49c32cbbec7f120349169c8eb972d7ca5335a901d18e247d9fc624d",
+        txid="09e85c2ffd833cb80dabc549560d718b51b2508cc32e696e63471a7ef4407039",
         n=1,
         include_mempool=True
     )
