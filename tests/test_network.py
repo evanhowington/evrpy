@@ -19,7 +19,7 @@ def test_addnode():
 
     result = rpc.addnode(
         node="74.208.127.203:18820",
-        node_command="add"
+        command="add"
     )
 
     print(f"result:\n{result}")
@@ -38,8 +38,8 @@ def test_disconnectnode():
 
     result = rpc.disconnectnode(
         # ip_address="74.208.127.203:18820",
-        ip_address=None,
-        node_id=2
+        address=None,
+        nodeid=2
     )
 
     print(f"node disconnection: {result}")
@@ -48,7 +48,7 @@ def test_disconnectnode():
 def test_getaddednodeinfo():
 
     result = rpc.getaddednodeinfo(
-        ip_address=None
+        node=None
         # ip_address="74.208.127.203:18820",
     )
 
@@ -134,7 +134,7 @@ def test_setban():
 
     result = rpc.setban(
         subnet="74.208.127.203",
-        rpc_command="remove",
+        command="remove",
         bantime=None,
         absolute=None
     )

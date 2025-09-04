@@ -169,6 +169,9 @@ def test_getnewaddress():
 
     print(f'new address: {result}\nfor account: {ACCOUNT}')
 
+    for key, value in result.items():
+        print(f'{key}: {value}')
+
 def test_getrawchangeaddress():
 
     result = rpc.getrawchangeaddress(
@@ -230,7 +233,7 @@ def test_getwalletinfo():
 def test_importaddress():
     ADDRESS = "n4iLxDUVRsJrf4824Wdur2nVoZDAtGUtEv"
     result = rpc.importaddress(
-        address_or_script=ADDRESS,
+        address=ADDRESS,
         label="label",
         rescan=True,
         p2sh=False
@@ -359,8 +362,6 @@ def test_listreceivedbyaccount():
 
     result = rpc.listreceivedbyaccount(
         minconf=10,
-        include_empty=None,
-        include_watchonly=None
     )
 
     print(f'list received by account result:\n{result}')
@@ -369,8 +370,6 @@ def test_listreceivedbyaccount():
 def test_listreceivedbyaddress():
     result = rpc.listreceivedbyaddress(
         minconf=10,
-        include_empty=None,
-        include_watchonly=None
     )
 
     # print(f'list received by address result:\n{result}')
@@ -391,6 +390,10 @@ def test_listsinceblock():
     )
 
     print(f'list since block {BLOCKHASH} result:\n{result}')
+    print(f'type result {type(result)}')
+    print(f'\niterated result')
+    for key, value in result.items():
+        print(f'{key}: {value}')
 
 
 def test_listtransactions():
@@ -403,6 +406,10 @@ def test_listtransactions():
     )
 
     print(f'list transactions result:\n{result}')
+    print(f'type result {type(result)}')
+    print(f'\niterated result')
+    for key, value in result[0].items():
+        print(f'{key}: {value}')
 
 
 def test_listunspent():
@@ -415,6 +422,10 @@ def test_listunspent():
     )
 
     print(f'list unspent result:\n{result}')
+    print(f'type result {type(result)}')
+    print(f'\niterated result')
+    for key, value in result[0].items():
+        print(f'{key}: {value}')
 
 
 def test_listwallets():
@@ -432,6 +443,8 @@ def test_lockunspent():
     )
 
     print(f'lock unspent result:\n{result}')
+    print(f'type result {type(result)}')
+
 
 
 def test_move():
@@ -440,7 +453,7 @@ def test_move():
         fromaccount="",
         toaccount="getNewAddressAccount",
         amount=0.01,
-        minconf_or_dummy=0,
+        minconf=0,
         comment="budget rebalancing"
     )
 
@@ -464,6 +477,9 @@ def test_rescanblockchain():
     )
 
     print(f'rescan blockchain result:\n{result}')
+    print(f'type result {type(result)}')
+    for key, value in result.items():
+        print(f'{key}: {value}')
 
 def test_sendfrom():
 
@@ -480,8 +496,8 @@ def test_sendfrom():
 def test_sendfromaddress():
 
     result = rpc.sendfromaddress(
-        from_address="mvTaFnBRbVZRepLoxVonBQkNJYrRxMwtDW",
-        to_address="n3pUp4uT58hTtATHGvmkBsGP9tzMn8ZAQs",
+        from_address="mvCjXuWeomRpgrAhZ53CXJMd7BGfEhnzQC",
+        to_address="mucBxoMw4N16zEeCHhUt4aQ9kThYT4w7Sn",
         amount=1,
         comment="test send"
     )
@@ -499,18 +515,32 @@ def test_sendmany():
     subtract_list = list(amounts.keys())
 
     result = rpc.sendmany(
-        fromaccount="",
+        from_account="",
         amounts=amounts,
         minconf=0,
         comment="comment",
         subtractfeefrom=subtract_list,  # must be a JSON array of addresses (wrapper will encode the list)
-        # conf_target=None, # THIS BREAKS THE RPC CALL
+        # conf_target=None, # THIS BREAKS THE RPC CALL if using other than None and args after exist
         # estimate_mode="UNSET", # CANT GET TO THIS BECAUSE PREVIOUS ARG BREAKS
         # estimate_mode is optional; omit or set to "UNSET"/"ECONOMICAL"/"CONSERVATIVE"
         # estimate_mode="UNSET",
     )
 
     print(f"send many result:\n{result}")
+
+def test_sendtoaddress():
+
+    result = rpc.sendtoaddress(
+        address="mqKDwH2CXAbcMJXdjYPspcCN6MuCgAZ7me",
+        amount=1,
+        comment="wen moon",
+        comment_to="super duper",
+        subtractfeefromamount=None,
+        conf_target=None, # AGAIN THIS BREAKS THE RPC CALL
+        # estimate_mode="UNSET"
+    )
+
+    print(f"send to many result:\n{result}")
 
 
 def test_setaccount():
@@ -584,6 +614,7 @@ if __name__ == "__main__":
     # test_sendfrom()
     # test_sendfromaddress()
     # test_sendmany()
+    # test_sendtoaddress()
     # test_setaccount()
     # test_settxfee()
     test_signmessage()

@@ -51,511 +51,437 @@ class NetworkRPC:
             self.testnet  # Boolean: use testnet or not
         )
 
-    def addnode(self, node, node_command):
+    def addnode(self, node, command):
         """
-        Attempts to add, remove, or try connecting to a peer node.
+        Attempts to add or remove a node from the addnode list, or try connecting once.
 
-        This RPC call allows you to manage the peer connection list by adding or removing nodes from it,
-        or by attempting a one-time connection to a node without adding it persistently.
+        Nodes added with addnode (or -connect) are protected from DoS disconnection
+        and are not required to be full nodes/support SegWit (though such peers will not
+        be synced from).
 
-        Parameters:
-            node (str): The IP address and port of the peer node (e.g., "192.168.0.6:8819").
-            node_command (str): The command to perform. Must be one of:
-                                - "add" to add the node to the list
-                                - "remove" to remove the node from the list
-                                - "onetry" to try connecting to the node once
+        Args:
+            node (str): The node address (see getpeerinfo for nodes).
+            command (str): One of:
+                - "add" to add a node to the list
+                - "remove" to remove a node from the list
+                - "onetry" to try a connection once
 
         Returns:
-            dict: A dictionary containing either a success message or an error message.
-                  Successful calls typically return:
-                  {
-                      "message": "Node successfully added/removed/onetry"
-                  }
+            dict | list | str:
+                - parsed JSON (dict or list) on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> rpc.addnode("192.168.0.6:8819", "add")
+            >>> rpc.addnode("192.168.0.6:8819", "onetry")
         """
-
-        # Construct the full command with node and command type
-        command = self._build_command() + [
-            "addnode",
-            str(node),
-            str(node_command)
-        ]
+        args = ["addnode", str(node), str(command)]
+        command_list = self._build_command() + args
 
         try:
-            # Run the command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Try to parse the response in case it's JSON (unusual for this command)
-                    return json.loads(result.stdout.strip())
-                except json.JSONDecodeError:
-                    # Return the raw string if not valid JSON (still successful)
-                    return {"message": "Command executed successfully", "raw": result.stdout.strip()}
-            else:
-                # Success case: many addnode calls return no output on success
-                return {"message": "Node successfully added/removed/onetry"}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Handle subprocess or execution error
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def clearbanned(self):
         """
-        Clear all banned IPs from the ban list.
-
-        This method issues the `clearbanned` RPC command, which removes all currently
-        banned IP addresses from the node's memory. Useful when managing peer bans manually.
+        Clear all banned IPs.
 
         Returns:
-            dict: If successful, returns a message indicating silent success.
-                  If there is an error or the output is non-JSON, it returns a dictionary
-                  with an "error" key or a "raw" key for debugging purposes.
+            dict | list | str:
+                - parsed JSON (dict or list) on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.clearbanned()
+            >>> rpc.clearbanned()
         """
-        command = self._build_command() + [
-            "clearbanned"
-        ]
+        args = ["clearbanned"]
+        command_list = self._build_command() + args
 
         try:
-            # Execute the command and capture the result
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Try parsing the result as JSON
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If it's not valid JSON, return the raw output for inspection
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there’s no output, the submission may have succeeded silently
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any exception encountered during execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def disconnectnode(self, ip_address=None, node_id=None):
+    def disconnectnode(self, address=None, nodeid=None):
         """
-            Immediately disconnects from the specified peer node using either its IP address or node ID.
+        Immediately disconnect from the specified peer node.
 
-            Only one of `ip_address` or `node_id` should be provided. If both are passed, `ip_address` takes precedence.
-
-            Args:
-                ip_address (str, optional): The IP address and port of the peer to disconnect, e.g., "192.168.0.6:8819".
-                node_id (int, optional): The numeric node ID (retrievable via getpeerinfo).
-
-            Returns:
-                dict: A success message if disconnect was silent, or the parsed result or error details.
-
-            Raises:
-                ValueError: If neither `ip_address` nor `node_id` is provided.
-
-            Example:
-                >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-                >>> result = rpc.disconnectnode(ip_address="192.168.0.6:8819")
-            """
-        #  Validate the arguments
-        if ip_address is not None:
-            command = self._build_command() + [
-                "disconnectnode",
-                str(ip_address)
-            ]
-        # now use an empty string if you're only passing node_id
-        elif node_id is not None:
-            command = self._build_command() + [
-                "disconnectnode",
-                "",
-                str(node_id)
-            ]
-        # if the ip address or node id is not provided, raise an error.
-        else:
-            raise ValueError("You must provide either the ip address or node id.")
-
-        try:
-            # Execute the command and capture the result
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Try parsing the result as JSON
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If it's not valid JSON, return the raw output for inspection
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there’s no output, the submission may have succeeded silently
-                return {"message": "Silent success."}
-        except Exception as e:
-            # Return any exception encountered during execution
-            return {"error": str(e)}
-
-
-    def getaddednodeinfo(self, ip_address=None):
-        """
-        Returns information about the given added node, or all added nodes if no IP is specified.
+        Strictly one out of 'address' and 'nodeid' can be provided to identify the node.
 
         Args:
-            ip_address (str, optional): The IP address of a specific node added via `addnode`.
-                If not provided, information about all added nodes will be returned.
+            address (str | None):
+                The IP address/port of the node. Use "" if specifying by nodeid.
+            nodeid (int | None):
+                The node ID (see getpeerinfo). Use with address="" or alone.
 
         Returns:
-            dict or list: Parsed JSON response from the CLI if successful, or an error dictionary.
+            dict | list | str:
+                - parsed JSON (dict or list) on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.getaddednodeinfo()
+            >>> rpc.disconnectnode("192.168.0.6:8819")
+            >>> rpc.disconnectnode("", 1)
         """
-        if ip_address is not None:
-            command = self._build_command() + [
-                "getaddednodeinfo",
-                str(ip_address)
-            ]
-        else:
-            command = self._build_command() + [
-                "getaddednodeinfo"
-            ]
+        args = ["disconnectnode"]
+        optional_spec = [address, nodeid]
+
+        for o in optional_spec:
+            if o is not None:
+                args.append(str(o))
+
+        command_list = self._build_command() + args
 
         try:
-            # Execute the command and capture the result
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Try parsing the result as JSON
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If it's not valid JSON, return the raw output for inspection
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there’s no output, the submission may have succeeded silently
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any exception encountered during execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
+    def getaddednodeinfo(self, node=None):
+        """
+        Returns information about the given added node, or all added nodes.
+        (Note: onetry addnodes are not listed here.)
+
+        Args:
+            node (str | None):
+                If provided, return information about this specific node.
+                If None, information on all added nodes is returned.
+
+        Returns:
+            list | dict | str:
+                - list or dict (parsed JSON) on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
+
+        Example:
+            >>> rpc.getaddednodeinfo("192.168.0.201")
+            >>> rpc.getaddednodeinfo()
+        """
+        args = ["getaddednodeinfo"]
+
+        if node is not None:
+            args.append(str(node))
+
+        command_list = self._build_command() + args
+
+        try:
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
+        except Exception as e:
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getconnectioncount(self):
         """
-        Returns the number of active connections to other nodes.
-
-        This RPC call returns a numeric value representing how many peers
-        the node is currently connected to.
+        Returns the number of connections to other nodes.
 
         Returns:
-            int or dict: Integer count of current connections, or an error dictionary.
+            int | str:
+                - integer connection count on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.getconnectioncount()
+            >>> rpc.getconnectioncount()
+            8
         """
-        # Build the command to get the number of peer connections
-        command = self._build_command() + ["getconnectioncount"]
+        command_list = self._build_command() + ["getconnectioncount"]
 
         try:
-            # Execute the CLI command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return int(out)
+            except ValueError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getnettotals(self):
         """
-        Returns information about network traffic including bytes received,
-        bytes sent, current time, and upload target stats.
-
-        This RPC call is useful for monitoring overall data usage and
-        bandwidth-related policy configurations.
+        Returns information about network traffic, including bytes in, bytes out, and current time.
 
         Returns:
-            dict: Dictionary containing keys like 'totalbytesrecv', 'totalbytessent',
-                  'timemillis', and 'uploadtarget', or an error dictionary on failure.
+            dict | str:
+                - dict with keys like "totalbytesrecv", "totalbytessent", "timemillis", "uploadtarget" on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.getnettotals()
-
+            >>> rpc.getnettotals()
+            {
+                "totalbytesrecv": 123456,
+                "totalbytessent": 654321,
+                "timemillis": 1672531200000,
+                "uploadtarget": {
+                    "timeframe": 86400,
+                    "target": 0,
+                    "target_reached": False,
+                    "serve_historical_blocks": True,
+                    "bytes_left_in_cycle": 0,
+                    "time_left_in_cycle": 0
+                }
+            }
         """
-        command = self._build_command() + [
-            "getnettotals"
-        ]
+        command_list = self._build_command() + ["getnettotals"]
 
         try:
-            # Execute the CLI command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getnetworkinfo(self):
         """
-        Returns networking-related state information from the Evrmore node.
+        Returns an object containing various state info regarding P2P networking.
 
         Returns:
-            dict: A dictionary containing server version, subversion, connections,
-                  relay fee, local services, reachable network status, and more.
+            dict | str:
+                - dict with keys like "version", "subversion", "protocolversion", "connections", etc. on success
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.getnetworkinfo()
+            >>> rpc.getnetworkinfo()
+            {
+                "version": 2000000,
+                "subversion": "/Evrmore:2.0.0/",
+                "protocolversion": 70015,
+                "localservices": "000000000000040d",
+                "localrelay": True,
+                "timeoffset": 0,
+                "connections": 8,
+                "networkactive": True,
+                "networks": [
+                    {
+                        "name": "ipv4",
+                        "limited": False,
+                        "reachable": True,
+                        "proxy": "",
+                        "proxy_randomize_credentials": False
+                    }
+                ],
+                "relayfee": 0.00001000,
+                "incrementalfee": 0.00001000,
+                "localaddresses": [],
+                "warnings": ""
+            }
         """
-
-        command = self._build_command() + [
-            "getnetworkinfo"
-        ]
+        command_list = self._build_command() + ["getnetworkinfo"]
 
         try:
-            # Execute the CLI command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getpeerinfo(self):
         """
-        Returns data about each connected network node as a JSON array of objects.
+        Return data about each connected peer.
 
         Returns:
-            dict or list: A list of dictionaries, each containing peer connection data,
-                          such as IP address, connection time, services, bytes sent/received,
-                          and version info.
+            list | str:
+                - list of peer objects on success (parsed JSON)
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.getpeerinfo()
+            >>> rpc.getpeerinfo()
         """
-
-        command = self._build_command() + [
-            "getpeerinfo"
-        ]
+        command = self._build_command() + ["getpeerinfo"]
 
         try:
-            # Execute the CLI command and capture output
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def listbanned(self):
         """
-        List all banned IP addresses and subnets.
+        List all banned IPs/Subnets.
 
         Returns:
-            list or dict: A list of banned IP/subnet entries with details such as ban reason,
-                          creation time, and ban duration. If an error occurs, a dictionary
-                          with an 'error' key will be returned.
+            list | str:
+                - list of banned IP/subnet entries on success (parsed JSON)
+                - raw string if daemon returns non-JSON
+                - "No data returned." if stdout is empty
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.listbanned()
+            >>> rpc.listbanned()
         """
-
-        command = self._build_command() + [
-            "listbanned"
-        ]
+        command = self._build_command() + ["listbanned"]
 
         try:
-            # Execute the CLI command and capture output
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def ping(self):
         """
-        Request a ping to all connected peers to measure network latency and backlog.
+        Requests that a ping be sent to all other nodes, to measure ping time.
 
-        This does not return immediate results. Instead, use `getpeerinfo()` to view updated `pingtime` and `pingwait` values.
+        Results are reflected in `getpeerinfo` under the fields `pingtime` and `pingwait`.
 
         Returns:
-            dict: A message indicating silent success or an error dictionary if execution fails.
+            str:
+                - Empty string "" on success (daemon does not return JSON here, only an ack)
+                - raw string if daemon produces other stdout
+                - or "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.ping()
-            >>> isinstance(result, dict)
-            True
+            >>> rpc.ping()
+            ''
         """
-
-        command = self._build_command() + [
-            "ping"
-        ]
+        command = self._build_command() + ["ping"]
 
         try:
-            # Execute the CLI command and capture output
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            return (result.stdout or "").strip()
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def setban(self, subnet, rpc_command, bantime=None, absolute=None):
+    def setban(self, subnet, command, bantime=None, absolute=None):
         """
         Attempts to add or remove an IP/Subnet from the banned list.
 
         Args:
-            subnet (str): The IP or subnet to ban (e.g., "192.168.0.6" or "192.168.0.0/24").
-            rpc_command (str): Either "add" or "remove".
-            bantime (int, optional): Duration in seconds to ban. Defaults to 24 hours unless specified.
-            absolute (bool, optional): Whether the bantime is an absolute timestamp.
+            subnet (str):
+                The IP/Subnet (optionally with netmask, default /32 for single IP).
+            command (str):
+                'add' to add an IP/Subnet, 'remove' to remove.
+            bantime (int | None, optional):
+                Ban duration in seconds. 0 or None means default 24h (overridden by -bantime).
+            absolute (bool | None, optional):
+                If True, bantime is treated as an absolute UNIX timestamp.
 
         Returns:
-            dict: Parsed response, or an error dictionary if the output is invalid or an exception occurs.
+            str | dict:
+                - "" or daemon response string if successful
+                - dict if JSON is returned
+                - "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.setban("192.168.0.6", "add", 86400)
+            >>> rpc.setban("192.168.0.6", "add", 86400)
+            ''
         """
-
-        command = self._build_command() + [
-            "setban",
-            str(subnet),
-            str(rpc_command)
-        ]
+        args = ["setban", str(subnet), str(command)]
 
         if bantime is not None:
-            command.append(str(bantime))
-        if absolute is not None:
-            command.append(str(absolute).lower())
+            args.append(str(int(bantime)))
+            if absolute is not None:
+                args.append("true" if absolute else "false")
+
+        command_list = self._build_command() + args
 
         try:
-            # Execute the CLI command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return ""
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def setnetworkactive(self, state):
         """
-        Enable or disable all P2P network activity.
+        Disable or enable all P2P network activity.
 
         Args:
-            state (bool): Set to True to enable networking, or False to disable it.
+            state (bool):
+                True to enable networking, False to disable.
 
         Returns:
-            dict: Parsed JSON response if successful, or a dictionary with an error message.
+            str | dict:
+                - Daemon response if available (empty string on success)
+                - Parsed JSON if returned
+                - "Error: ..." on failure
 
         Example:
-            >>> rpc = NetworkRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result = rpc.setnetworkactive(True)
-            >>> isinstance(result, dict)
-            True
+            >>> rpc.setnetworkactive(True)
+            ''
         """
+        args = ["setnetworkactive", "true" if state else "false"]
 
-        command = self._build_command() + [
-            "setnetworkactive",
-            str(state).lower()
-        ]
+        command_list = self._build_command() + args
 
         try:
-            # Execute the CLI command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse the output (expected to be a simple integer)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Command executed but produced no output
-                return {"message": "Silent success."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return ""
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any error raised during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
 

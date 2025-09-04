@@ -57,7 +57,7 @@ def test_getrpcinfo():
 def test_help():
 
     result = rpc.help(
-        rpccall=None
+        command=None
     )
 
     print(f"help result:\n{result}")
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     # test_getinfo()
     # test_getmemoryinfo()
     # test_getrpcinfo()
-    # test_help()
+    test_help()
     # test_stop() # this will stop your server and you will have to restart it
-    test_uptime()
+    # test_uptime()
 

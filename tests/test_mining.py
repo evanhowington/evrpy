@@ -33,7 +33,7 @@ messagesrpc = MessagesRPC(
 )
 
 
-BLOCKHEX = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0603404e100101ffffffff0300715a363a00000023210220476a5d2acfc37ac55b1cf3220480cf8755d6557666e6cc37c01381c72aa42fac0029d177060000001976a914ea234ab400ccbb0ae2ec1870a75671104b5bfc0688ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf90120000000000000000000000000000000000000000000000000000000000000000000000000"
+BLOCKHEX = "0000005030d3ed0375fcd734ba5786ca7b6569e33648096f110d92d47a659f9b"
 
 
 
@@ -43,7 +43,7 @@ def test_getblocktemplate():
 
     )
 
-    print(f"block template\n {result}\n")
+    print(f"block template\n {result}\ntype {type(result)}")
 
     for key in result:
         print(f"{key}: {result[key]}")
@@ -52,6 +52,7 @@ def test_getblocktemplate():
 def test_getevrprogpowhash():
 
     get_block = blockrpc.getblock(blockhash=BLOCKHEX, verbosity=2)
+    print(f'get block:\n{get_block}')
 
     """
     These values are fillers to see if the rpc call works.
@@ -64,7 +65,7 @@ def test_getevrprogpowhash():
         target=get_block['bits'],
     )
 
-    print(f"result:\n{result}\n")
+    print(f"result:\n{result}\n\ntype {type(result)}")
 
     for key in result:
         print(f"{key}: {result[key]}")
@@ -104,7 +105,7 @@ def test_pprpcsb():
         nonce=hex(get_block['nonce']),
     )
 
-    print(f"result of pprpcsb:\n{result}")
+    print(f"result of pprpcsb:\n{result}\ntype {type(result)}")
 
 
 def test_prioritisetransaction():
@@ -114,6 +115,7 @@ def test_prioritisetransaction():
         ipfs_hash="QmYwhataboutfromherehowmanydoesittakeZdnvkhdzR",
         expire_time=None
     )
+    print(f'txid: {TXID}\ntxid type {type(TXID)}')
 
     result = rpc.prioritisetransaction(
         txid=f"{TXID[0]}",
@@ -134,10 +136,10 @@ def test_submitblock():
 
 
 if __name__ == "__main__":
-    # test_getblocktemplate()
-    # test_getevrprogpowhash()
+    test_getblocktemplate()
+    test_getevrprogpowhash()
     # test_getmininginfo()
     # test_getnetworkhashps()
-    # test_pprpcsb()
+    test_pprpcsb()
     # test_prioritisetransaction()
-    test_submitblock()
+    # test_submitblock()

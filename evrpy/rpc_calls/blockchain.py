@@ -50,1478 +50,832 @@ class BlockchainRPC:
             self.testnet  # Boolean: use testnet or not
         )
 
-
     def clearmempool(self):
         """
-        Remove all transactions from the mempool.
-        This method issues the `clearmempool` command via `evrmore-cli`, instructing the node to clear its in-memory transaction pool.
-        Useful for developers, testing, or operational scenarios where you need to force a mempool reset.
+        Remove all transactions from the node’s mempool.
 
         Returns:
-            str: A message confirming the mempool has been cleared, or an error message if the operation failed.
+            dict | list | str:
+                Parsed JSON/primitive if returned by the daemon, or raw string output.
+                On failure: "Error: <message>".
 
-        Examples:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.clearmempool()
+        Example:
+            >>> rpc.clearmempool()
         """
-        # Build the command by combining the base CLI arguments with the 'clearmempool' action
-        command = self._build_command() + [
-            "clearmempool"
-        ]
+        command = self._build_command() + ["clearmempool"]
 
         try:
-            # Execute the command using subprocess, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Return the cleaned output message, or a default message if output is empty
-            if result.stdout.strip():
-                return result.stdout.strip()
-            else:
-                return {"message": "Mempool cleared with no output"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any exception error as a dictionary
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def decodeblock(self, blockhex):
         """
-        Decode a hex-encoded Evrmore block and display its structured contents
-        Equivalent to the `evrmore-cli decodeblock` command
+        Decode a serialized block provided in hex format.
 
         Args:
-            blockhex (str): The block hex string to decode. This is a required argument
+            blockhex (str): The hex-encoded block data to decode.
 
         Returns:
-            dict: A dictionary containing block data fields, such as:
-                - hash (str): The block hash (matches provided hash).
-                - size (int): The block size in bytes.
-                - strippedsize (int): The block size excluding witness data.
-                - weight (int): The block weight as defined in BIP 141.
-                - height (int): The block's height (index).
-                - version (int): The block version.
-                - versionHex (str): Hexadecimal representation of the version.
-                - merkleroot (str): Merkle root hash.
-                - tx (list of str): Transaction IDs in the block.
-                - time (int): Block timestamp (seconds since epoch).
-                - nonce (int): Block nonce.
-                - bits (str): Compact target representation
-            If an error occurs or the output is not valid JSON, an error dictionary is returned instead.
+            dict | str:
+                On success: Parsed JSON with block details, or raw string if parsing fails.
+                On error: "Error: <message>".
 
-            Examples:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.decodeblock("blockhex")
+        Example:
+            >>> rpc.decodeblock("00000020abcdef...")
         """
-        # Build the full command to call the 'decodeblock' RPC with the given block hex
-        command = self._build_command() + [
-            "decodeblock",
-            str(blockhex)
-        ]
+        command = self._build_command() + ["decodeblock", str(blockhex)]
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the output as JSON (should be a decoded block dictionary)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the decoded block data as a Python dictionary
-                except json.JSONDecodeError:
-                    # Output was not valid JSON, so return an error dictionary with the raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # No data was returned; likely the block hex was invalid or unknown
-                return {"error": f"No data available for block hex {blockhex}.  Verify information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception that occurs during the subprocess execution as an error dictionary
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getbestblockhash(self):
         """
-        Returns the hash of the best (tip) block in the longest blockchain.
-
-        This method calls the `getbestblockhash` RPC command, which is equivalent
-        to running `evrmore-cli getbestblockhash`. It returns the block hash (hex encoded)
-        of the current tip of the chain.
+        Get the hash of the best (tip) block in the active chain.
 
         Returns:
-            str: The best block hash (hex encoded) representing the current tip of the blockchain.
-            If the command fails, it raises an exception or logs an error message.
-
+            str:
+                On success: The block hash (hex string).
+                On error: "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.getbestblockhash()
+            >>> rpc.getbestblockhash()
         """
-        command = self._build_command() + [
-            "getbestblockhash"
-        ]
+        command = self._build_command() + ["getbestblockhash"]
 
         try:
-            # Execute the command using subprocess, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Return the cleaned output message, or a default message if output is empty
-            if result.stdout.strip():
-                return result.stdout.strip()
-            else:
-                return {"message": "No available best block hash"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Return any exception error as a dictionary
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def getblock(self, blockhash, verbosity=1):
+    def getblock(self, blockhash, verbosity=None):
         """
-        Retrieve detailed information about a specific block in the blockchain.
-
-        This method wraps the `getblock` RPC command for Evrmore, providing block information
-        at three different verbosity levels:
-        - verbosity=0: Returns the serialized, hex-encoded string for the block.
-        - verbosity=1 (default): Returns a dictionary with basic block info.
-        - verbosity=2: Returns a dictionary with block info and extended data for each transaction.
+        Get details for a block by its hash.
 
         Args:
-            blockhash (str): The block hash to retrieve.
-            verbosity (int, optional): Level of detail to return.
-                - 0: Hex-encoded block data (as a string)
-                - 1: JSON object with block details (default)
-                - 2: JSON object with block details and full transaction data
+            blockhash (str): The block hash.
+            verbosity (int | None, optional):
+                - 0 → return hex-encoded serialized block data.
+                - 1 → return block details as a JSON object.
+                - 2 → return block details plus full transaction data.
+                Defaults to 1 if not specified.
 
         Returns:
-            dict or str:
-                - If verbosity=0: Returns a string of serialized, hex-encoded block data.
-                - If verbosity=1: Returns a dictionary with the block's details (hash, confirmations, size, height, tx ids, etc).
-                - If verbosity=2: As above, but `tx` field contains full transaction objects.
-                - In case of errors or unexpected output, returns a dictionary with an "error" key.
+            str | dict:
+                - If verbosity=0: a hex-encoded string of block data.
+                - If verbosity=1: a dictionary with block metadata.
+                - If verbosity=2: a dictionary with block metadata and transactions.
+                - On error: "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-        ... testnet=True)
-            >>> block = rpc.getblock("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09")
+            >>> rpc.getblock("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09")
+            >>> rpc.getblock("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09", verbosity=2)
         """
-
-        # Build the command-line argument list to invoke `evrmore-cli getblock`.
-        # Starts with the base command containing authentication and network settings (via _build_command).
-        # Appends the 'getblock' command, the block hash as a string, and the verbosity as a string.
-        # The final 'command' list is suitable to pass to subprocess for execution.
-        command = self._build_command() + [
-            "getblock",
-            str(blockhash),
-            str(verbosity)
-        ]
+        command = self._build_command() + ["getblock", str(blockhash)]
+        if verbosity is not None:
+            command.append(str(verbosity))
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the output as JSON (should be a decoded block dictionary)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the decoded block data as a Python dictionary
-                except json.JSONDecodeError:
-                    # Output was not valid JSON, so return an error dictionary with the raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # No data was returned; likely the block hex was invalid or unknown
-                return {"error": f"No data available for block hash {blockhash}.  Verify information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception that occurs during the subprocess execution as an error dictionary
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getblockchaininfo(self):
         """
-        Returns an object containing various state info regarding blockchain processing.
+        Get various state details about the current blockchain/chain processing.
 
-        This method invokes the `getblockchaininfo` RPC, which retrieves comprehensive details
-        about the current state and configuration of the blockchain node.
+        Args:
+            None
 
         Returns:
-            dict: An object containing the following fields:
-                - chain (str): Current network name as defined in BIP70 (e.g., 'main', 'test', 'regtest').
-                - blocks (int): Current number of blocks processed in the server.
-                - headers (int): Current number of validated headers.
-                - bestblockhash (str): Hash of the currently best block.
-                - difficulty (float): The current difficulty.
-                - mediantime (int): Median time for the current best block.
-                - verificationprogress (float): Estimate of verification progress [0..1].
-                - chainwork (str): Total amount of work in active chain, as a hexadecimal string.
-                - size_on_disk (int): Estimated size of the block and undo files on disk.
-                - pruned (bool): Whether blocks are subject to pruning.
-                - pruneheight (int, optional): Lowest-height complete block stored (if pruning is enabled).
-                - automatic_pruning (bool, optional): Whether automatic pruning is enabled (if applicable).
-                - prune_target_size (int, optional): The target size used by pruning.
-                - softforks (list): Status of softforks in progress.
-                - bip9_softforks (dict): Status of BIP9 softforks in progress.
-                - warnings (str): Any network and blockchain warnings.
+            dict | str:
+                - On success: a dictionary with chain status fields (e.g., chain, blocks, headers, bestblockhash, difficulty, softforks, warnings, etc.).
+                - If the daemon returns non-JSON text: the raw string.
+                - On error: "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.getblockchaininfo()
-
+            >>> rpc.getblockchaininfo()
         """
-
-        # Build the base Evrmore CLI command with authentication and network options,
-        # then append the "getblockchaininfo" RPC method to the argument list.
-        command = self._build_command() + [
-            "getblockchaininfo"
-        ]
+        command = self._build_command() + ["getblockchaininfo"]
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the output as JSON (should be a decoded block dictionary)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the blockchain info data as a Python dictionary
-                except json.JSONDecodeError:
-                    # Output was not valid JSON, so return an error dictionary with the raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # No data was returned
-                return {"error": f"No data available from the blockchain.  Verify information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception that occurs during the subprocess execution as an error dictionary
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getblockcount(self):
         """
-        Returns the number of blocks in the longest blockchain.
+        Get the number of blocks in the longest blockchain.
 
-        This RPC call executes 'getblockcount', returning the current block height.
+        Args:
+            None
 
         Returns:
-            int: The current block count as an integer, representing the total number of blocks in the longest blockchain.
-            If the call fails, it raises an exception or returns an error message as part of the logs.
-
-
-        Example output:
-            {
-                "message": "123456"
-            }
+            int | str:
+                - On success: the current block count as an integer.
+                - If the daemon returns non-JSON text: the raw string.
+                - On error: "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.getblockcount()
+            >>> rpc.getblockcount()
         """
-
-        # Build the CLI command to query the current block count
-        command = self._build_command() + [
-            "getblockcount"
-        ]
+        command = self._build_command() + ["getblockcount"]
 
         try:
-            # Execute the command using subprocess, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Return the cleaned output message, or a default message if output is empty
-            if result.stdout.strip():
-                return result.stdout.strip()
-            else:
-                return {"message": "No available blockcount"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return int(out)
+            except ValueError:
+                return out
         except Exception as e:
-            # Return any exception error as a dictionary
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
 
 
     def getblockhash(self, height):
         """
-        Returns the hash of the block in the best-block-chain at the specified height.
-
-        This method wraps the Evrmore 'getblockhash' RPC command. The returned value is the block hash at
-        the given height in the active chain.
+        Get the block hash at a specific height in the best blockchain.
 
         Args:
-            height (int): The height index of the block to query.
+            height (int): The block height (index) to query.
 
         Returns:
-            str: The block hash as a hexadecimal string.
+            str:
+                - On success: the block hash string.
+                - On error: "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.getblockhash(1036542)
+            >>> rpc.getblockhash(1000)
         """
-
-
-        command = self._build_command() + [
-            "getblockhash",
-            str(height)
-        ]
+        command = self._build_command() + ["getblockhash", str(height)]
 
         try:
-            # Execute the command using subprocess, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Return the cleaned output message, or a default message if output is empty
-            if result.stdout.strip():
-                return result.stdout.strip()
-            else:
-                return {"message": "No available height"}
+            out = (result.stdout or "").strip()
+            return out or "No data returned."
         except Exception as e:
-            # Return any exception error as a dictionary
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def getblockhashes(self, high, low, noOrphans=True, logicalTimes=True):
+    def getblockhashes(self, high, low, no_orphans=None, logical_times=None):
         """
-        Returns hashes of blocks mined within the specified timestamp range.
-
-        This method calls the Evrmore 'getblockhashes' RPC, which returns an array of block hashes
-        or (if logicalTimes option is set) a dictionary with blockhash and logical timestamp fields.
+        Return block hashes within a timestamp range.
 
         Args:
-            high (int): The newer (upper) block timestamp.
-            low (int): The older (lower) block timestamp.
-            options (dict): A dictionary specifying options. Example:
-                {
-                    "noOrphans": True,       # Only include blocks on the main chain
-                    "logicalTimes": True     # Include logical timestamps with each hash
-                }
+            high (int): Newer block timestamp.
+            low (int): Older block timestamp.
+            no_orphans (bool | None, optional): If True, include only main-chain blocks.
+            logical_times (bool | None, optional): If True, include logical timestamps.
 
         Returns:
-            list or dict:
-                - If logicalTimes is False, returns a list of block hash strings.
-                - If logicalTimes is True, returns a list of dictionaries with
-                  'blockhash' and 'logicalts' fields.
+            list | str: Parsed list (hash strings or objects when logical_times=True),
+            or "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> rpc.getblockhashes(1231614698, 1231024505, {"noOrphans": True})
+            >>> rpc.getblockhashes(1231614698, 1231024505, no_orphans=True)
         """
+        args = ["getblockhashes", str(int(high)), str(int(low))]
 
-        query = json.dumps({
-            "noOrphans": noOrphans,  # Option to include or exclude orphan blocks in the query
-            "logicalTimes": logicalTimes  # Option to use logical timestamps in the results
-        })
+        # Only include options if caller provided at least one flag
+        if (no_orphans is not None) or (logical_times is not None):
+            opts = {}
+            if no_orphans is not None:
+                opts["noOrphans"] = bool(no_orphans)
+            if logical_times is not None:
+                opts["logicalTimes"] = bool(logical_times)
+            args.append(json.dumps(opts))
 
-        command = self._build_command() + [
-            "getblockhashes",  # RPC method to retrieve block hashes in a time range
-            str(high),         # Upper (newest) block timestamp as a string
-            str(low),          # Lower (oldest) block timestamp as a string
-            query              # Query options encoded as a JSON string
-        ]
-
-
+        command = self._build_command() + args
         try:
-            # Execute the command using subprocess, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Return the cleaned output message, or a default message if output is empty
-            if result.stdout.strip():
-                try:
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                return {"message": "No available blockhashes"}
+            out = (result.stdout or "").strip()
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out or "No data returned."
         except Exception as e:
-            # Return any exception error as a dictionary
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def getblockheader(self, hash, verbose=True):
+    def getblockheader(self, block_hash, verbose=True):
         """
-        Retrieve information about a specific block header using the `getblockheader` RPC command.
-
-        This method queries the Evrmore node for the block header identified by its hash.
-        If `verbose` is True (default), the result is a dictionary with detailed block header information.
-        If `verbose` is False, the result is a serialized, hex-encoded string for the block header.
+        Fetch a block header by hash.
 
         Args:
-            hash (str): The block hash (required).
-            verbose (bool, optional): If True (default), returns structured JSON info.
-                If False, returns hex-encoded data as a string.
+            block_hash (str): The block hash.
+            verbose (bool, optional): True (default) → parsed dict. False → hex string.
 
         Returns:
-            dict or str:
-                - If verbose=True: Returns a dictionary with block header details such as hash, height, confirmations, version, merkleroot, time, nonce, bits, difficulty, chainwork, previous/next block hash, etc.
-                - If verbose=False: Returns a string that is serialized, hex-encoded data for the block header.
-                - On error, returns a dictionary with an "error" key and details.
-
-        Evrmore-cli CLI reference:
-            getblockheader "hash" ( verbose )
-
-            - "hash":          (string, required) The block hash
-            - verbose:         (boolean, optional, default=true) true for a json object, false for the hex encoded data
+            dict | str: Dict when verbose=True; hex string when verbose=False; or "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> header = rpc.getblockheader("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09")
+            >>> rpc.getblockheader("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09")
         """
+        args = ["getblockheader", str(block_hash)]
+        if verbose is not None:
+            args.append("true" if bool(verbose) else "false")
 
-        # Compose the command to call 'evrmore-cli getblockheader' with the provided hash and verbosity.
-        # The command list includes base CLI args, the RPC command name, the block hash, and the verbosity flag as a lowercase string.
-        command = self._build_command() + [
-            "getblockheader",
-            str(hash),
-            str(verbose).lower()
-        ]
-
+        command = self._build_command() + args
         try:
-            # Execute the CLI command using subprocess, capturing standard output and error streams.
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
 
-            if result.stdout.strip():
-                try:
-                    # If output is non-empty, attempt to parse as JSON.
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If output is not valid JSON, return an error with the raw output.
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Handle case where there is no informational output from the command.
-                return {"message": "No available information"}
+            if not bool(verbose):
+                return out or "No data returned."
+
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out or "No data returned."
         except Exception as e:
-            # Catch any unexpected exceptions (including CLI or system errors) and return as an error message.
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getchaintips(self):
         """
-        Retrieve information about all known chain tips in the block tree using the `getchaintips` RPC command.
-
-        This method queries the Evrmore node to list the tips of all known branches in the block tree. This includes:
-            - the active main chain,
-            - orphaned branches (forks),
-            - and headers that have not yet been fully validated.
-
-        Each tip provides its height, hash, length of the branch it represents, and status (e.g., active, valid-fork, etc.).
-
-        Returns:
-            dict:
-                - On success: A dictionary containing a list of chain tip dictionaries.
-                  Each tip includes:
-                      - height (int): The height of the chain tip.
-                      - hash (str): The block hash of the chain tip.
-                      - branchlen (int): The number of blocks in the branch since it diverged from the main chain.
-                      - status (str): The validation state of the branch. One of:
-                            "active", "valid-fork", "valid-headers", "headers-only", "invalid".
-                - On malformed JSON output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getchaintips
-
-            - Returns information about all known tips in the block tree.
-
-            Possible `status` values:
-                - "invalid"       – Contains at least one invalid block.
-                - "headers-only"  – Only headers are known, full blocks unavailable.
-                - "valid-headers" – Fully available blocks but not validated.
-                - "valid-fork"    – Fully validated fork but not on main chain.
-                - "active"        – Tip of the active main chain.
-
-        Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> tips = rpc.getchaintips()
-        """
-
-        # Construct the complete command by combining the base command (including authentication details)
-        # with the specific "getchaintips" RPC call. This command, when executed, retrieves details about
-        # the tips of all branches in the blockchain tree, including the active one and any forks.
-        command = self._build_command() + [
-            "getchaintips"
-        ]
-
-        try:
-            # Execute the CLI command using subprocess, capturing standard output and error streams.
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # If output is non-empty, attempt to parse as JSON.
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If output is not valid JSON, return an error with the raw output.
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Handle case where there is no informational output from the command.
-                return {"message": "No available information"}
-        except Exception as e:
-            # Catch any unexpected exceptions (including CLI or system errors) and return as an error message.
-            return {"error": str(e)}
-
-
-    def getchaintxstats(self, nblocks=43800, blockhash=None):
-        """
-        Compute statistics about the number and rate of transactions in the blockchain using the `getchaintxstats` RPC command.
-
-        This method queries the Evrmore node for historical transaction statistics over a specified window of blocks.
-        The window can be customized by setting the number of blocks (`nblocks`) and the block hash that ends the window (`blockhash`).
-        If neither argument is provided, statistics are computed using the default window ending at the chain tip.
+        List all known tips in the block tree (main tip and orphaned branches).
 
         Args:
-            nblocks (int, optional): Size of the window in number of blocks. If None, the default is used (43800 blocks, approx. one month).
-            blockhash (str, optional): Hash of the block that ends the window. If None, the chain tip is used.
+            None
 
         Returns:
-            dict:
-                - On success: A dictionary with chain transaction statistics, including:
-                    - "time": Timestamp of the final block in the window.
-                    - "txcount": Total number of transactions up to that point.
-                    - "window_block_count": Number of blocks in the window.
-                    - "window_tx_count": Number of transactions in the window (if block count > 0).
-                    - "window_interval": Time in seconds between first and last block (if block count > 0).
-                    - "txrate": Average transactions per second (if interval > 0).
-                - On malformed JSON output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getchaintxstats ( nblocks blockhash )
-
-            - nblocks (optional): Window size in number of blocks. Default is approx. one month.
-            - blockhash (optional): Hash of block that ends the window.
+            list | str: Parsed list of tip objects, or "Error: <message>".
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> stats = rpc.getchaintxstats()
+            >>> rpc.getchaintips()
         """
+        command = self._build_command() + ["getchaintips"]
+        try:
+            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out or "No data returned."
+        except Exception as e:
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-        # Construct the command based on which arguments were provided
-        if blockhash == None and nblocks != None:
-            # Case: only nblocks is provided; pass nblocks as the sole argument
-            command = self._build_command() + [
-                "getchaintxstats",
-                str(nblocks)
-            ]
-        elif nblocks == None and blockhash != None:
-            # Case: only blockhash is provided; use default nblocks (43800) and include blockhash
-            command = self._build_command() + [
-                "getchaintxstats",
-                str(43800),
-                str(blockhash)
-            ]
-        else:
-            # Case: neither nblocks nor blockhash is provided; use no additional arguments
-            command = self._build_command() + [
-                "getchaintxstats"
-            ]
+    def getchaintxstats(self, nblocks=None, blockhash=None):
+        """
+        Compute statistics about total count and rate of transactions over a window.
+
+        Args:
+            nblocks (int | None, optional): Size of the window in blocks. If None, daemon uses its default (≈ one month).
+            blockhash (str | None, optional): Hash of the block that ends the window. If provided without
+                `nblocks`, a positional placeholder is inserted for alignment.
+
+        Returns:
+            dict | str: Parsed stats dictionary on success; or "Error: <message>".
+
+        Example:
+            >>> rpc.getchaintxstats(2016)
+        """
+        args = ["getchaintxstats"]
+
+        # Positional handling:
+        # - If only nblocks is provided -> [nblocks]
+        # - If only blockhash is provided -> ["", blockhash] (keep position for nblocks)
+        # - If both provided -> [nblocks, blockhash]
+        if nblocks is not None and blockhash is None:
+            args.append(str(int(nblocks)))
+        elif nblocks is None and blockhash is not None:
+            args.extend(["", str(blockhash)])
+        elif nblocks is not None and blockhash is not None:
+            args.extend([str(int(nblocks)), str(blockhash)])
+        # else: neither provided -> just the RPC name
+
+        command = self._build_command() + args
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # If output is non-empty, attempt to parse it as JSON
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # If there is no output from the command, return a message indicating no info
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            try:
+                return json.loads(out) if out else "No data returned."
+            except json.JSONDecodeError:
+                return out or "No data returned."
         except Exception as e:
-            # If subprocess execution fails, return the exception as an error message
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getdifficulty(self):
         """
-        Retrieve the current proof-of-work difficulty using the `getdifficulty` RPC command.
-
-        This method queries the Evrmore node to get the current mining difficulty,
-        expressed as a multiple of the minimum possible difficulty (i.e., 1.0).
-
-        Returns:
-            float or dict:
-                - On success: A floating-point number representing the current difficulty.
-                - On malformed JSON output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getdifficulty
-
-            - Returns the current proof-of-work difficulty.
-            - Output: A single numeric value (e.g., 2238590.406819596)
-
-        Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> difficulty = rpc.getdifficulty()
-        """
-        # Build the CLI command to query current difficulty
-        command = self._build_command() + [
-            "getdifficulty"
-        ]
-
-        try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the numeric output as JSON (float expected)
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # Return raw output if it fails to parse, with error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if no output is returned from the command
-                return {"message": "No available information"}
-        except Exception as e:
-            # Catch and return any exception during command execution
-            return {"error": str(e)}
-
-
-    def getmempoolancestors(self, txid, verbose=True):
-        """
-        Retrieve in-mempool ancestor transactions for a given transaction using the `getmempoolancestors` RPC command.
-
-        This method queries the Evrmore node for all ancestor transactions of a specified transaction ID (`txid`)
-        that is currently in the mempool. The output varies depending on the `verbose` flag:
-
-            - If `verbose=True` (default), the result is a dictionary of ancestor transactions with detailed metadata.
-            - If `verbose=False`, the result is a list of ancestor transaction IDs only.
-
-        If the specified `txid` is not found in the mempool, an error will be returned.
+        Return the current proof-of-work difficulty as a multiple of the minimum.
 
         Args:
-            txid (str): The transaction ID to query. Must be present in the mempool.
-            verbose (bool, optional): If True (default), returns structured JSON info.
-                If False, returns a list of ancestor transaction IDs.
+            None
 
         Returns:
-            dict or list:
-                - If verbose=True:
-                    Returns a dictionary where each key is an ancestor transaction ID, and each value contains:
-                        - "size" (int): Virtual transaction size as defined in BIP 141.
-                        - "fee" (float): Transaction fee in EVR.
-                        - "modifiedfee" (float): Fee with any mining-priority deltas applied.
-                        - "time" (int): UNIX timestamp when the transaction entered the mempool.
-                        - "height" (int): Block height at which the transaction entered the mempool.
-                        - "descendantcount" (int): Number of in-mempool descendants, including the transaction itself.
-                        - "descendantsize" (int): Total virtual size of descendants.
-                        - "descendantfees" (float): Combined modified fees of descendants.
-                        - "ancestorcount" (int): Number of in-mempool ancestors, including the transaction itself.
-                        - "ancestorsize" (int): Total virtual size of ancestors.
-                        - "ancestorfees" (float): Combined modified fees of ancestors.
-                        - "wtxid" (str): Witness transaction ID.
-                        - "depends" (list of str): List of parent transaction IDs used as inputs.
-                - If verbose=False:
-                    Returns a list of transaction ID strings for all ancestor transactions in the mempool.
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure (e.g., txid not in mempool): Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getmempoolancestors "txid" (verbose)
-
-            - "txid":      (string, required) The transaction ID to inspect.
-            - verbose:     (boolean, optional, default=false) true for a JSON object, false for an array of txids.
+            float | str: Difficulty value on success, or "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> ancestors = rpc.getmempoolancestors("a1b2c3d4...", verbose=False)
+            >>> rpc.getdifficulty()
         """
-
-        # Build the CLI command with the txid and the verbose flag
-        command = self._build_command() + [
-            "getmempoolancestors",
-            str(txid),
-            str(verbose).lower()  # Convert boolean to lowercase string: 'true' or 'false'
-        ]
+        command = self._build_command() + ["getdifficulty"]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # Return raw output if parsing fails, along with error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            try:
+                # Difficulty should parse cleanly as a number
+                return json.loads(out) if out else "No data returned."
+            except json.JSONDecodeError:
+                return float(out) if out else "No data returned."
         except Exception as e:
-            # Catch and return any exception (e.g., txid not in mempool, CLI error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-
-    def getmempooldescendants(self, txid, verbose=True):
+    def getmempoolancestors(self, txid, verbose=None):
         """
-        Retrieve in-mempool descendant transactions for a given transaction using the `getmempooldescendants` RPC command.
-
-        This method queries the Evrmore node for all descendant transactions of a specified transaction ID (`txid`)
-        that is currently in the mempool. The output varies depending on the `verbose` flag:
-
-            - If `verbose=True` (default), the result is a dictionary of descendant transactions with detailed metadata.
-            - If `verbose=False`, the result is a list of descendant transaction IDs only.
-
-        If the specified `txid` is not found in the mempool, an error will be returned.
+        Return all in-mempool ancestors for the given transaction.
 
         Args:
-            txid (str): The transaction ID to query. Must be present in the mempool.
-            verbose (bool, optional): If True (default), returns structured JSON info.
-                If False, returns a list of descendant transaction IDs.
+            txid (str): The transaction id (must currently be in the mempool).
+            verbose (bool | None, optional): If True, return a dict keyed by txid with stats;
+                if False, return a list of ancestor txids. Defaults to False.
 
         Returns:
-            dict or list:
-                - If verbose=True:
-                    Returns a dictionary where each key is a descendant transaction ID, and each value contains:
-                        - "size" (int): Virtual transaction size as defined in BIP 141.
-                        - "fee" (float): Transaction fee in EVR.
-                        - "modifiedfee" (float): Fee with any mining-priority deltas applied.
-                        - "time" (int): UNIX timestamp when the transaction entered the mempool.
-                        - "height" (int): Block height at which the transaction entered the mempool.
-                        - "descendantcount" (int): Number of in-mempool descendants, including the transaction itself.
-                        - "descendantsize" (int): Total virtual size of descendants.
-                        - "descendantfees" (float): Combined modified fees of descendants.
-                        - "ancestorcount" (int): Number of in-mempool ancestors, including the transaction itself.
-                        - "ancestorsize" (int): Total virtual size of ancestors.
-                        - "ancestorfees" (float): Combined modified fees of ancestors.
-                        - "wtxid" (str): Witness transaction ID.
-                        - "depends" (list of str): List of parent transaction IDs used as inputs.
-                - If verbose=False:
-                    Returns a list of transaction ID strings for all descendant transactions in the mempool.
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure (e.g., txid not in mempool): Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getmempooldescendants "txid" (verbose)
-
-            - "txid":      (string, required) The transaction ID to inspect.
-            - verbose:     (boolean, optional, default=false) true for a JSON object, false for an array of txids.
+            list[str] | dict | str: Parsed JSON (list or dict) on success, or
+            "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> descendants = rpc.getmempooldescendants("a1b2c3d4...", verbose=False)
+            >>> rpc.getmempoolancestors("mytxid")              # → ['txid1', 'txid2', ...]
+            >>> rpc.getmempoolancestors("mytxid", True)       # → {'txid1': {...}, ...}
         """
+        args = ["getmempoolancestors", str(txid)]
 
-        # Build the CLI command with the txid and the verbose flag
-        command = self._build_command() + [
-            "getmempoolancestors",
-            str(txid),
-            str(verbose).lower()  # Convert boolean to lowercase string: 'true' or 'false'
-        ]
+        # Convert None to daemon default (False) to keep positional alignment consistent.
+        use_verbose = False if verbose is None else bool(verbose)
+        args.append("true" if use_verbose else "false")
+
+        command = self._build_command() + args
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # Return raw output if parsing fails, along with error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., txid not in mempool, CLI error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
+    def getmempooldescendants(self, txid, verbose=None):
+        """
+        Return all in-mempool descendants for the given transaction.
+
+        Args:
+            txid (str): The transaction id (must currently be in the mempool).
+            verbose (bool | None, optional): If True, return a dict keyed by txid with stats;
+                if False, return a list of descendant txids. Defaults to False.
+
+        Returns:
+            list[str] | dict | str: Parsed JSON (list or dict) on success, or
+            "No data returned." / "Error: <message>" on failure.
+
+        Example:
+            >>> rpc.getmempooldescendants("mytxid")            # → ['txid1', 'txid2', ...]
+            >>> rpc.getmempooldescendants("mytxid", True)      # → {'txid1': {...}, ...}
+        """
+        args = ["getmempooldescendants", str(txid)]
+
+        # Convert None to daemon default (False) and pass explicitly to keep positions aligned.
+        use_verbose = False if verbose is None else bool(verbose)
+        args.append("true" if use_verbose else "false")
+
+        command = self._build_command() + args
+
+        try:
+            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
+        except Exception as e:
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getmempoolentry(self, txid):
         """
-            Retrieve mempool metadata for a specific transaction using the `getmempoolentry` RPC command.
+        Return mempool data for the given transaction.
 
-            This method queries the Evrmore node for all mempool-related metadata about a single transaction,
-            identified by its transaction ID (`txid`). The transaction must be currently in the mempool.
+        Args:
+            txid (str): The transaction id (must currently be in the mempool).
 
-            Args:
-                txid (str): The transaction ID to query. Must be present in the mempool.
+        Returns:
+            dict | str: Parsed JSON object with mempool stats on success.
+            If the node returns non-JSON text, that raw text is returned.
+            On empty output: "No data returned."
+            On failure: "Error: <message>"
 
-            Returns:
-                dict:
-                    - On success: A dictionary with detailed mempool metadata for the specified transaction, including:
-                        - "size" (int): Virtual transaction size (as defined in BIP 141).
-                        - "fee" (float): Transaction fee in EVR.
-                        - "modifiedfee" (float): Fee after mining-priority deltas.
-                        - "time" (int): UNIX timestamp when the transaction entered the mempool.
-                        - "height" (int): Block height at which the transaction entered the mempool.
-                        - "descendantcount" (int): Number of descendant transactions including this one.
-                        - "descendantsize" (int): Total virtual size of descendants.
-                        - "descendantfees" (float): Combined modified fees of descendants.
-                        - "ancestorcount" (int): Number of ancestor transactions including this one.
-                        - "ancestorsize" (int): Total virtual size of ancestors.
-                        - "ancestorfees" (float): Combined modified fees of ancestors.
-                        - "wtxid" (str): Witness transaction ID.
-                        - "depends" (list of str): List of parent transaction IDs this transaction depends on.
-                    - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                    - On failure (e.g., txid not in mempool): Returns a dictionary with an "error" key containing exception details.
-
-            Evrmore-cli CLI reference:
-                getmempoolentry "txid"
-
-                - "txid": (string, required) The transaction ID to inspect. Must be present in the mempool.
-
-            Example:
-                >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-                >>> entry = rpc.getmempoolentry("a1b2c3d4...")
-            """
-        # Build the CLI command to retrieve mempool data for the given transaction ID
-        command = self._build_command() + [
-            "getmempoolentry",
-            str(txid)
-        ]
+        Example:
+            >>> rpc.getmempoolentry("mytxid")
+        """
+        command = self._build_command() + ["getmempoolentry", str(txid)]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., txid not in mempool, CLI error)
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getmempoolinfo(self):
         """
-        Retrieve information about the current state of the mempool using the `getmempoolinfo` RPC command.
-
-        This method queries the Evrmore node for real-time statistics about the transaction memory pool (mempool),
-        including the number of transactions, total size, memory usage, and the minimum required fee.
+        Return details on the active state of the mempool.
 
         Args:
             None
 
         Returns:
-            dict:
-                - On success: A dictionary with information about the mempool state, including:
-                    - "size" (int): The number of transactions currently in the mempool.
-                    - "bytes" (int): The total virtual size (vsize) of all transactions in the mempool.
-                    - "usage" (int): The total memory usage of the mempool in bytes.
-                    - "maxmempool" (int): The maximum memory usage allowed for the mempool in bytes.
-                    - "mempoolminfee" (float): The minimum fee rate in EVR/kB required for a transaction to be accepted.
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure: Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getmempoolinfo
-
-            - Returns real-time metadata on the memory pool used to hold unconfirmed transactions.
+            dict | str: Parsed JSON object with mempool statistics on success.
+            If the node returns non-JSON text, that raw text is returned.
+            On empty output: "No data returned."
+            On failure: "Error: <message>"
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> mempool = rpc.getmempoolinfo()
+            >>> rpc.getmempoolinfo()
         """
-        # Build the CLI command to retrieve mempool information
-        command = self._build_command() + [
-            "getmempoolinfo"
-        ]
+        command = self._build_command() + ["getmempoolinfo"]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., txid not in mempool, CLI error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def getrawmempool(self, verbose=True
-                      ):
+    def getrawmempool(self, verbose=None):
         """
-        Retrieve raw mempool contents using the `getrawmempool` RPC command.
-
-        This method queries the Evrmore node for all transactions currently in the memory pool.
-        The output format depends on the `verbose` flag:
-
-            - If `verbose=True`, returns a dictionary where each key is a transaction ID and each value
-              contains detailed metadata for that transaction.
-            - If `verbose=False`, returns a list of transaction IDs only.
+        Return the mempool contents.
 
         Args:
-            verbose (bool): If True, returns structured JSON info.
-                            If False, returns only a list of txids.
+            verbose (bool | None, optional):
+                - True  → return a dict keyed by txid with detailed entry data.
+                - False → return a list of txids.
+                - None  → omit the arg so the node uses its default (False).
 
         Returns:
-            dict or list:
-                - If verbose=True:
-                    Returns a dictionary where each key is a transaction ID and each value includes:
-                        - "size" (int): Virtual transaction size (BIP 141).
-                        - "fee" (float): Transaction fee in EVR.
-                        - "modifiedfee" (float): Fee after mining-priority deltas.
-                        - "time" (int): UNIX timestamp when the transaction entered the mempool.
-                        - "height" (int): Block height when the transaction entered the mempool.
-                        - "descendantcount" (int): Count of in-mempool descendants (including itself).
-                        - "descendantsize" (int): Total virtual size of all descendants.
-                        - "descendantfees" (float): Total modified fees of descendants.
-                        - "ancestorcount" (int): Count of in-mempool ancestors (including itself).
-                        - "ancestorsize" (int): Total virtual size of all ancestors.
-                        - "ancestorfees" (float): Total modified fees of ancestors.
-                        - "wtxid" (str): Witness transaction ID.
-                        - "depends" (list of str): List of parent transaction IDs used as inputs.
-                - If verbose=False:
-                    Returns a list of transaction ID strings currently in the mempool.
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure: Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getrawmempool (verbose)
-
-            - verbose (optional, default=false): true for detailed JSON, false for array of txids
+            dict | list | str:
+                Parsed JSON (dict or list) on success.
+                Raw text if the node returns non-JSON.
+                "No data returned." if stdout is empty.
+                "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> rpc.getrawmempool(verbose=False)
+            >>> rpc.getrawmempool()
+            >>> rpc.getrawmempool(verbose=True)
         """
+        args = ["getrawmempool"]
+        if verbose is not None:
+            args.append("true" if verbose else "false")
 
-        # Build the CLI command to retrieve raw mempool data, with optional verbosity
-        command = self._build_command() + [
-            "getrawmempool",
-            str(verbose).lower()
-        ]
+        command = self._build_command() + args
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure, subprocess error)
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getspentinfo(self, txid, index):
         """
-        Retrieve information about where a specific transaction output was spent using the `getspentinfo` RPC command.
-
-        This method queries the Evrmore node to determine the spending transaction and input index
-        for a specific output of a given transaction.
+        Return information about where a specific output is spent.
 
         Args:
-            txid (str): The hex string of the transaction ID.
-            index (int): The output index of the transaction to check.
+            txid (str): The transaction ID containing the output.
+            index (int): The output index (vout) within the transaction.
 
         Returns:
-            dict:
-                - On success: A dictionary containing information about the spending input, including:
-                    - "txid" (str): The transaction ID of the transaction that spent the output.
-                    - "index" (int): The index of the input that spent the output.
-                    - Additional implementation-defined fields may be present.
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure (e.g., output not spent or input invalid): Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            getspentinfo
-
-            Input:
-                {
-                    "txid": (string) The hex string of the txid,
-                    "index": (number) The output index
-                }
-
-            Output:
-                {
-                    "txid": (string) The transaction ID that spent the output,
-                    "index": (number) The index of the input in the spending transaction
-                }
+            dict | str:
+                Parsed JSON (dict) with spending transaction details on success.
+                Raw text if the node returns non-JSON.
+                "No data returned." if stdout is empty.
+                "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
             >>> rpc.getspentinfo("0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9", 0)
         """
-
-        query = json.dumps({
-            "txid": txid,
-            "index": index
-        })
-
-        command = self._build_command() + [
-            "getspentinfo",
-            query
-        ]
+        payload = {"txid": str(txid), "index": int(index)}
+        command = self._build_command() + ["getspentinfo", json.dumps(payload)]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure, subprocess error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def gettxout(self, txid, n, include_mempool=True):
+    def gettxout(self, txid, n, include_mempool=None):
         """
-        Retrieve details about an unspent transaction output (UTXO) using the `gettxout` RPC command.
-
-        This method queries the Evrmore node to determine the current state and metadata of a specific
-        transaction output. If the output is unspent and not spent in the mempool (if `include_mempool=True`),
-        it returns detailed information. If the output is already spent, it returns None.
+        Return details about an unspent transaction output (UTXO).
 
         Args:
-            txid (str): The transaction ID to inspect.
-            n (int): The output index (vout number) of the transaction.
-            include_mempool (bool, optional): Whether to include mempool transactions when determining if the output is unspent.
-                                              Defaults to True.
+            txid (str): The transaction ID containing the output.
+            n (int): The output index (vout) within the transaction.
+            include_mempool (bool, optional): Whether to include mempool transactions.
+                Defaults to True if not specified. If False, excludes outputs spent in the mempool.
 
         Returns:
-            dict:
-                - On success (unspent output): A dictionary with UTXO details including:
-                    - "bestblock" (str): The block hash that includes the transaction.
-                    - "confirmations" (int): Number of confirmations.
-                    - "value" (float): Amount in EVR for this output.
-                    - "scriptPubKey" (dict): Details of the output script, including:
-                        - "asm" (str): Script in assembly form.
-                        - "hex" (str): Script in hex encoding.
-                        - "reqSigs" (int): Required number of signatures.
-                        - "type" (str): Script type (e.g., "pubkeyhash").
-                        - "addresses" (list of str): List of associated Evrmore addresses.
-                    - "coinbase" (bool): True if the transaction is a coinbase transaction.
-                - If spent or not found: Returns None or {"message": "No available information"}
-                - On malformed JSON output: Returns a dictionary with "error" and "raw" keys.
-                - On failure: Returns a dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            gettxout "txid" n ( include_mempool )
-
-            - "txid":             (string, required) The transaction ID.
-            - n:                  (numeric, required) The vout number (output index).
-            - include_mempool:   (boolean, optional) Whether to include mempool when checking for spent status. Default is true.
+            dict | str:
+                Parsed JSON (dict) with UTXO details on success.
+                Raw text if the node returns non-JSON.
+                "No data returned." if stdout is empty.
+                "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> utxo = rpc.gettxout("0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9", 0)
+            >>> rpc.gettxout("0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9", 1)
         """
+        command = self._build_command() + ["gettxout", str(txid), str(n)]
 
-        # Build the CLI command with txid, output index, and optional mempool flag
-        command = self._build_command() + [
-            "gettxout",
-            str(txid),
-            str(n),
-            str(include_mempool).lower()
-        ]
+        # Always include the third argument to preserve parameter order
+        if include_mempool is None:
+            command.append("true")  # default behavior
+        else:
+            command.append("true" if include_mempool else "false")
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure, subprocess error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def gettxoutproof(self, txids, blockhash):
+    def gettxoutproof(self, txids, blockhash=None):
         """
-        Retrieve a hex-encoded Merkle proof that one or more transactions were included in a block
-        using the `gettxoutproof` RPC command.
-
-        This method queries the Evrmore node for a Merkle proof that the given transaction(s) were included
-        in a specific block. If `-txindex` is not enabled, the `blockhash` argument is required.
+        Return a hex-encoded proof that the given txid(s) are included in a block.
 
         Args:
-            txids (list of str): A list of transaction IDs to prove inclusion for.
-            blockhash (str): The hash of the block that includes the transaction(s).
+            txids (list[str]): One or more transaction IDs to prove inclusion for.
+            blockhash (str | None, optional): Block hash to search in. If None, the node
+                will try to find the tx via UTXO/txindex; providing a blockhash avoids
+                needing -txindex.
 
         Returns:
-            str or dict:
-                - On success: A hex-encoded Merkle proof string.
-                - On malformed output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            gettxoutproof ["txid",...] ( blockhash )
+            str:
+                Hex-encoded serialized proof on success.
+                "No data returned." if the node produced no output.
+                "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> proof = rpc.gettxoutproof(["txid1"], "blockhash")
+            >>> rpc.gettxoutproof(["0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9"])
         """
+        # Build args in strict positional order; include optional only if provided.
+        args = ["gettxoutproof", json.dumps(list(txids))]
+        if blockhash is not None:
+            args.append(str(blockhash))
 
-        # Prepare CLI parameters: txid array as JSON string, blockhash as string
-        query = json.dumps(
-            txids
-        )
-        # Build the CLI command RPC call, json formatted list, and blockhash string
-        command = self._build_command() + [
-            "gettxoutproof",
-            query,
-            str(blockhash)
-        ]
+        command = self._build_command() + args
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # This RPC returns a hex string, not JSON — return it directly
-                    return result.stdout.strip()
-                except json.JSONDecodeError as err:
-                    # This block is unlikely to be triggered, but kept for consistency
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Handle empty response
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            # Node returns a hex string (may or may not be JSON-quoted); surface as text.
+            try:
+                parsed = json.loads(out)
+                return parsed if isinstance(parsed, str) else str(parsed)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure)
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def gettxoutsetinfo(self):
         """
-        Retrieve statistics about the current UTXO (unspent transaction output) set using the `gettxoutsetinfo` RPC command.
-
-        This method queries the Evrmore node for detailed statistics about the current state of the UTXO set.
-        The information includes block height, total number of outputs, total amount, serialized hash, and estimated disk usage.
-
-        Note:
-            This call may take some time to complete depending on node state and disk performance.
+        Return statistics about the current UTXO set (this call may take time).
 
         Args:
             None
 
         Returns:
-            dict:
-                - On success: A dictionary containing UTXO set statistics, including:
-                    - "height" (int): The current block height.
-                    - "bestblock" (str): The block hash of the best block.
-                    - "transactions" (int): Total number of transactions in the chain.
-                    - "txouts" (int): Total number of UTXO entries.
-                    - "bogosize" (int): A meaningless metric provided for internal size approximation.
-                    - "hash_serialized_2" (str): A serialized hash of the UTXO set.
-                    - "disk_size" (int): Estimated disk size of the chainstate in bytes.
-                    - "total_amount" (float): Total amount of EVR in the UTXO set.
-                - On malformed JSON output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            gettxoutsetinfo
-
-            - Returns metadata about the unspent transaction output (UTXO) set.
+            dict | str:
+                - Parsed JSON object with UTXO set statistics on success.
+                - Raw text if the node returns non-JSON.
+                - "No data returned." if the node produced no output.
+                - "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> stats = rpc.gettxoutsetinfo()
+            >>> rpc.gettxoutsetinfo()
         """
-
-        command = self._build_command() + [
-            "gettxoutsetinfo"
-        ]
+        command = self._build_command() + ["gettxoutsetinfo"]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure, subprocess error)
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def preciousblock(self, blockhash):
         """
-        Mark a block as 'precious' using the `preciousblock` RPC command.
-
-        This method tells the Evrmore node to treat the specified block as if it were received
-        before others with the same amount of proof-of-work. This can influence chain selection
-        by prioritizing the given block in a competing fork scenario.
-
-        Note:
-            - The effect is **not persisted** across node restarts.
-            - Multiple calls to `preciousblock` can override each other.
-            - This does not re-download or reconsider blocks, it only affects tie-breaking.
+        Treat a block as if it were received before other competing blocks with the same work.
 
         Args:
-            blockhash (str): The hash of the block to prioritize as precious.
+            blockhash (str): The block hash to mark as precious.
 
         Returns:
-            str or dict:
-                - On success: An empty string (standard CLI behavior).
-                - On failure: A dictionary with an "error" key containing exception details.
-                - On malformed output: A dictionary with "error" and "raw" keys.
-
-        Evrmore-cli CLI reference:
-            preciousblock "blockhash"
-
-            - "blockhash": (string, required) The hash of the block to treat as precious.
+            str | dict:
+                - Parsed JSON or raw text from the node, if any.
+                - "No data returned." if the command succeeds with no output.
+                - "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> rpc.preciousblock("0000000000000abc1234...")
+            >>> rpc.preciousblock("00000000c9379837...f6ed09")
         """
-
-        command = self._build_command() + [
-            "preciousblock",
-            str(blockhash)
-        ]
-
+        command = self._build_command() + ["preciousblock", str(blockhash)]
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # This RPC returns a string (usually empty) — return it directly
-                    return result.stdout.strip()
-                except json.JSONDecodeError as err:
-                    # This block is unlikely to be triggered, but kept for consistency
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Handle empty response
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
+    def pruneblockchain(self, height):
+        """
+        Prune the blockchain up to a specified block height or UNIX timestamp.
 
-    def pruneblockchain(self, n):
+        Args:
+            height (int):
+                The block height or UNIX timestamp to prune up to.
+                - If a block height is provided, blocks up to that height will be pruned.
+                - If a UNIX timestamp is provided, blocks with block time at least 2 hours older than the timestamp will be pruned.
 
-        command = self._build_command() + [
-            "pruneblockchain",
-            str(n)
-        ]
+        Returns:
+            int | str:
+                - The height of the last block pruned, if successful.
+                - "Error: <message>" on failure.
 
+        Example:
+            >>> rpc.pruneblockchain(1000)
+        """
+        command = self._build_command() + ["pruneblockchain", str(height)]
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # This RPC returns a string (usually empty) — return it directly
-                    return result.stdout.strip()
-                except json.JSONDecodeError as err:
-                    # This block is unlikely to be triggered, but kept for consistency
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Handle empty response
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            try:
+                return int(out)
+            except ValueError:
+                return out
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure)
-            return {"error": str(e)}, print('\nThis likely occurred because node is not in prune mode')
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def savemempool(self):
         """
-        Persist the current in-memory mempool to disk using the `savemempool` RPC command.
-
-        This method instructs the Evrmore node to dump the current contents of the mempool
-        to the `mempool.dat` file on disk. This allows the mempool to be restored after node restarts.
-
-        Note:
-            - This RPC call will **fail** if the node is running in **pruned mode**, as mempool persistence
-              is not supported in that configuration.
-
-        Args:
-            None
+        Dump the current mempool to disk.
 
         Returns:
-            str or dict:
-                - On success: An empty string (standard behavior).
-                - On failure (e.g., node is pruned): A dictionary with an "error" key containing exception details.
-                - On malformed output: A dictionary with "error" and "raw" keys.
-
-        Evrmore-cli CLI reference:
-            savemempool
-
-            - Dumps the mempool to disk.
+            str:
+                - An empty string ("") if successful.
+                - "Error: <message>" on failure.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
             >>> rpc.savemempool()
         """
-
-        command = self._build_command() + [
-            "savemempool"
-        ]
-
+        command = self._build_command() + ["savemempool"]
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # This RPC returns a string (usually empty) — return it directly
-                    return result.stdout.strip()
-                except json.JSONDecodeError as err:
-                    # Unlikely for this RPC, but handled for consistency
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Command succeeded but returned no output (normal behavior)
-                return "No RPC return information.  The mempool dump should be located in your data directory as 'mempool.dat'"
+            return (result.stdout or "").strip()
         except Exception as e:
-            # Catch and return any exception (e.g., if node is in prune mode)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def verifychain(self, checklevel=4, nblocks=6):
+    def verifychain(self, checklevel=None, nblocks=None):
         """
-        Verifies the blockchain database for consistency and correctness.
+        Verify the blockchain database.
 
-        Parameters:
-            checklevel (int, optional): Specifies the thoroughness of the verification.
-                                        Ranges from 0 (lowest) to 4 (highest). Default is 4.
-            nblocks (int, optional): Number of blocks to check. 0 means check the entire chain. Default is 6.
+        Args:
+            checklevel (int, optional):
+                The thoroughness of the block verification (0–4).
+                Defaults to 3 if omitted.
+            nblocks (int, optional):
+                The number of blocks to verify.
+                Defaults to 6. Use 0 to verify all blocks.
 
         Returns:
-            str: "true" or "false" as a string depending on whether the chain verified successfully.
-                 If the command produces no output, returns a note about the lack of RPC output.
-                 If an error occurs during execution, returns a dictionary with an "error" message.
+            bool:
+                - True if the blockchain verified successfully.
+                - False otherwise.
+                - "Error: <message>" on failure.
 
-        RPC Reference:
-            verifychain ( checklevel nblocks )
-
-            Verifies blockchain database.
-
-            Arguments:
-            1. checklevel   (numeric, optional, 0-4, default=3) How thorough the block verification is.
-            2. nblocks      (numeric, optional, default=6, 0=all) The number of blocks to check.
-
-            Result:
-            true|false       (boolean) Verified or not
-
-            Examples:
-            > evrmore-cli verifychain
-            > curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "verifychain", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:8819/
+        Example:
+            >>> rpc.verifychain()
+            >>> rpc.verifychain(checklevel=4, nblocks=100)
         """
-        command = self._build_command() + [
-            "verifychain",
-            str(checklevel),
-            str(nblocks)
+        optional_spec = [
+            str(checklevel) if checklevel is not None else None,
+            str(nblocks) if nblocks is not None else None,
+        ]
+
+        while optional_spec and optional_spec[-1] is None:
+            optional_spec.pop()
+
+        command = self._build_command() + ["verifychain"] + [
+            arg if arg is not None else "" for arg in optional_spec
         ]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # This RPC returns a string (usually empty) — return it directly
-                    return result.stdout.strip()
-                except json.JSONDecodeError as err:
-                    # Unlikely for this RPC, but handled for consistency
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Command succeeded but returned no output (normal behavior)
-                return "No RPC return information.  The mempool dump should be located in your data directory as 'mempool.dat'"
+            out = (result.stdout or "").strip()
+            return json.loads(out.lower()) if out.lower() in ["true", "false"] else out
         except Exception as e:
-            # Catch and return any exception (e.g., if node is in prune mode)
-            return {"error": str(e)}
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def verifytxoutproof(self, proof):
         """
-        Verify that a Merkle proof commits to one or more transactions in a known block using the `verifytxoutproof` RPC command.
-
-        This method checks that a hex-encoded proof (typically generated by `gettxoutproof`) correctly commits to a transaction
-        included in a block that is part of the current best chain. If the block is unknown or invalid, the call will fail.
+        Verify that a proof points to a transaction in a block.
 
         Args:
-            proof (str): A hex-encoded Merkle proof string that commits to one or more transactions in a block.
+            proof (str):
+                The hex-encoded proof generated by `gettxoutproof`.
 
         Returns:
-            list | dict:
-                - On success: A list of transaction IDs (txids) that the proof commits to.
-                - If the proof is invalid: An empty list.
-                - On malformed JSON output: A dictionary with "error" and "raw" keys.
-                - On failure: A dictionary with an "error" key containing exception details.
-
-        Evrmore-cli CLI reference:
-            verifytxoutproof "proof"
-
-            - proof (string, required): The Merkle proof as a hex-encoded string.
+            list:
+                A list of transaction IDs (`txid`) that the proof commits to.
+                Returns an empty list if the proof is invalid.
+                Returns "Error: <message>" if verification fails.
 
         Example:
-            >>> rpc = BlockchainRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> proof = rpc.gettxoutproof(["<txid>"], "<blockhash>")
-            >>> verified_txids = rpc.verifytxoutproof(proof)
+            >>> rpc.verifytxoutproof("hex_proof_string")
         """
-        command = self._build_command() + [
-            "verifytxoutproof",
-            str(proof)
-        ]
+        command = self._build_command() + ["verifytxoutproof", str(proof)]
 
         try:
-            # Execute the CLI command using subprocess, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout.strip():
-                try:
-                    # Attempt to parse the output as JSON and return it
-                    parsed = json.loads(result.stdout)
-                    return parsed
-                except json.JSONDecodeError as err:
-                    # If JSON parsing fails, return the raw output with an error message
-                    return {"error": f"Invalid JSON output: {err}", "raw": result.stdout}
-            else:
-                # Return a message if the command succeeded but produced no output
-                return {"message": "No available information"}
+            out = (result.stdout or "").strip()
+            return json.loads(out)
         except Exception as e:
-            # Catch and return any exception (e.g., CLI failure, subprocess error)
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()

@@ -33,13 +33,13 @@ def test_sendmessage():
         expire_time=None
     )
 
-    print(f"result:\n{result[0]}")
+    print(f"result:\n{result}\nresult type {type(result)}")
 
 
 def test_subscribetochannel():
 
     result = rpc.subscribetochannel(
-        channel_name="NEUBTRINO_DEFI"
+        channel_name="NEUBTRINO_IS_DUMB"
     )
 
     print(f"result: {result}")
@@ -48,7 +48,7 @@ def test_subscribetochannel():
 def test_unsubscribefromchannel():
 
     result = rpc.unsubscribefromchannel(
-        channel_name="NEUBTRINO_DEFI"
+        channel_name="NEUBTRINO_IS_DUMB"
     )
 
     print(f"result: {result}")
@@ -60,7 +60,7 @@ def test_viewallmessagechannels():
 
     )
 
-    print(f"result:\n{result}")
+    print(f"result:\n{result}\nresult type {type(result)}")
 
     result_length = len(result)
     for i in range(result_length):
@@ -72,6 +72,7 @@ def test_viewallmessages():
     result = rpc.viewallmessages(
 
     )
+    print(f'result: {result}\nresult type {type(result)}\nresult[0] type {type(result[0])}')
 
     result_length = len(result)
     for i in range(result_length):

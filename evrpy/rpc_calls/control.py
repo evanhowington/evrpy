@@ -52,251 +52,144 @@ class ControlRPC:
             self.testnet  # Boolean: use testnet or not
         )
 
-
     def getinfo(self):
         """
-        Retrieve general information about the Evrmore node and wallet.
+        Get general state info about the Evrmore node.
 
-        Executes the `getinfo` command via the Evrmore CLI, which returns a variety
-        of runtime and blockchain-related metadata. This includes wallet balance, block height,
-        difficulty, versioning, connection status, and other system-level data.
-
-        Note:
-            This RPC method is deprecated and may be removed in future versions. It is recommended
-            to use more specific RPC methods (like `getblockchaininfo`, `getnetworkinfo`, `getwalletinfo`) instead.
+        Note: This command is **deprecated** and may be removed in future versions.
 
         Returns:
-            dict: A dictionary containing:
-                - "version" (int): Evrmore server version
-                - "protocolversion" (int): Network protocol version
-                - "walletversion" (int): Wallet version
-                - "balance" (float): Wallet balance in EVR
-                - "blocks" (int): Current block height
-                - "timeoffset" (int): Time offset in seconds
-                - "connections" (int): Number of active peer connections
-                - "proxy" (str, optional): Proxy setting if any
-                - "difficulty" (float): Current PoW difficulty
-                - "testnet" (bool): True if running on testnet
-                - "keypoololdest" (int): Timestamp of oldest pre-generated key
-                - "keypoolsize" (int): Number of keys in the keypool
-                - "unlocked_until" (int): Wallet unlock expiration (epoch), or 0 if locked
-                - "paytxfee" (float): Fee per KB set by user
-                - "relayfee" (float): Minimum fee required to relay transactions
-                - "errors" (str): Any network or wallet-related warnings
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            dict:
+                A dictionary with node state information such as version, protocol version,
+                wallet balance, block count, network details, difficulty, and any errors.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> info = rpc.getinfo()
+            >>> rpc.getinfo()
         """
-        command = self._build_command() + [
-            "getinfo"
-        ]
+        command = self._build_command() + ["getinfo"]
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Attempt to parse the output as JSON (should be a decoded block dictionary)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the info data as a Python dictionary
-                except json.JSONDecodeError:
-                    # Output was not valid JSON, so return an error dictionary with the raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # No data was returned
-                return {"error": f"No info available.  Check your wallet/node is running."}
+            out = (result.stdout or "").strip()
+            return json.loads(out)
         except Exception as e:
-            # Catch and return any exception that occurs during the subprocess execution as an error dictionary
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def getmemoryinfo(self, mode="stats"):
+    def getmemoryinfo(self, mode=None):
         """
-        Retrieve memory usage information from the Evrmore node.
+        Get information about memory usage from the Evrmore node.
 
-        This method executes the `getmemoryinfo` RPC command via the CLI. It provides either high-level
-        memory usage stats or a low-level heap state (in XML format), depending on the selected mode.
-
-        Parameters:
-            mode (str, optional): The mode of memory info to return. Must be one of:
-                - "stats": General statistics about memory usage (default)
-                - "mallocinfo": Low-level heap state as an XML string (glibc 2.10+ required)
+        Args:
+            mode (str, optional):
+                Determines the type of information returned.
+                  - "stats" (default): General statistics about memory usage.
+                  - "mallocinfo": Returns an XML string describing low-level heap state.
 
         Returns:
             dict or str:
-                - If mode is "stats", returns a dictionary with the following structure:
-                    {
-                      "locked": {
-                        "used": int,
-                        "free": int,
-                        "total": int,
-                        "locked": int,
-                        "chunks_used": int,
-                        "chunks_free": int
-                      }
-                    }
-                - If mode is "mallocinfo", returns a string containing XML output from malloc.
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+                - If `mode="stats"`, returns a dictionary with memory statistics.
+                - If `mode="mallocinfo"`, returns an XML string describing heap state.
+                - Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> meminfo = rpc.getmemoryinfo()
+            >>> rpc.getmemoryinfo("stats")
+            >>> rpc.getmemoryinfo("mallocinfo")
         """
-        # Build the full CLI command with the chosen mode
-        command = self._build_command() + [
-            "getmemoryinfo",
-            str(mode)
-        ]
+        command = self._build_command() + ["getmemoryinfo"]
+
+        if mode is not None:
+            command.append(str(mode))
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # If output is JSON (expected for "stats" mode), parse and return it
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If output is not JSON (e.g., "mallocinfo" returns XML), return raw output
-                    return result.stdout.strip()
-            else:
-                # No output received from the command
-                return {"error": "No info available.  Check your wallet/node is running."}
+            out = (result.stdout or "").strip()
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch any subprocess or execution errors
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getrpcinfo(self):
         """
-        Retrieve information about the RPC server and currently active commands.
-
-        Executes the `getrpcinfo` RPC command via the Evrmore CLI. This returns details about the
-        RPC subsystem, including a list of currently executing RPC commands and their durations.
+        Get details about the active RPC server and currently running commands.
 
         Returns:
-            dict: A dictionary containing:
-                - "active_commands" (list of dict): Each dictionary includes:
-                    - "method" (str): The name of the currently running RPC method
-                    - "duration" (int): Time in microseconds the command has been running
+            dict:
+                A dictionary containing details of the RPC server, including:
+                  - "active_commands" (list): Information about all active commands.
+                    Each entry includes:
+                      - "method" (str): The RPC command name.
+                      - "duration" (int): The running time in microseconds.
 
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> rpcinfo = rpc.getrpcinfo()
+            >>> rpc.getrpcinfo()
         """
-        # Build the CLI command to call the 'getrpcinfo' RPC method
-        command = self._build_command() + [
-            "getrpcinfo"
-        ]
+        command = self._build_command() + ["getrpcinfo"]
 
         try:
-            # Execute the command and capture standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse and return JSON output (expected format)
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # Return raw output if not valid JSON (should not happen for getrpcinfo)
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Handle the case of empty output
-                return {"error": "No info available.  Check your wallet/node is running."}
+            return json.loads((result.stdout or "").strip())
         except Exception as e:
-            # Return any exception encountered during subprocess execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def help(self, rpccall=None):
+    def help(self, command=None):
         """
-        Display help information for all RPC commands or a specific command.
+        List all available RPC commands, or get help text for a specific command.
 
-        This method executes the `help` RPC command via the Evrmore CLI. If a specific RPC command
-        is provided, the method returns usage information for that command. Otherwise, it returns
-        the full categorized list of available commands.
-
-        Parameters:
-            rpccall (str, optional): The name of an RPC method to get help for. If None, prints help for all.
+        Args:
+            command (str, optional):
+                The name of the RPC command to get detailed help for.
+                If omitted, returns a list of all available commands.
 
         Returns:
-            str: A plain text help message with command usage details.
-
-            On failure, returns:
-                - {"error": "No help available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            str:
+                Help text as a string. If no command is provided, returns a list of all commands.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> helptext = rpc.help()
+            >>> rpc.help()
+            >>> rpc.help("getblock")
         """
-        # Construct the CLI command, adding the optional specific RPC call if provided
-        if rpccall is not None:
-            command = self._build_command() + ["help", str(rpccall)]
-        else:
-            command = self._build_command() + ["help"]
+        command_list = self._build_command() + ["help"]
+        if command is not None:
+            command_list.append(str(command))
 
         try:
-            # Execute the CLI help command
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                return result.stdout.strip()  # Always plain text, so return directly
-            else:
-                return {"error": "No help available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return (result.stdout or "").strip()
         except Exception as e:
-            return {"error": str(e)}
-
-
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def stop(self):
         """
-        Gracefully shut down the Evrmore node.
+        Stop the Evrmore server.
 
-        Executes the `stop` RPC command via the CLI, which causes the Evrmore daemon
-        to shut down cleanly. This command will terminate the process, so it should
-        only be called when you are ready to shut down the node.
+        This will safely shut down the running Evrmore daemon.
+
+        Args:
+            None
 
         Returns:
-            str: A plain text message confirming that shutdown was initiated.
-                  Typically returns "Evrmore server stopping".
-
-            On failure, returns:
-                - {"error": "No shutdown confirmation received."}
-                - {"error": <exception message>} if the subprocess fails
+            str:
+                Confirmation message from the server if the shutdown was initiated successfully.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> result = rpc.stop()
+            >>> rpc.stop()
         """
-        # Build the CLI command to stop the node
-        command = self._build_command() + ["stop"]
+        command_list = self._build_command() + ["stop"]
 
         try:
-            # Execute the command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                return result.stdout.strip()  # Return the raw confirmation string
-            else:
-                return {"error": "No shutdown confirmation received."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return (result.stdout or "").strip()
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
+
 
     def uptime(self):
         """
@@ -348,5 +241,5 @@ class ControlRPC:
             else:
                 return {"error": "No uptime received."}
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 

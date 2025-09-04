@@ -74,317 +74,288 @@ class AddressindexRPC:
             self.testnet     # Boolean: use testnet or not
         )
 
-    def getaddressbalance(self, address, includeassets=False):
+    def getaddressbalance(self, addresses, include_assets=False):
         """
-        Retrieve the current balance and total received amount for a given Evrmore address.
+        Returns the balance for one or more addresses (requires addressindex).
 
-        Queries the Evrmore node (with addressindex enabled) for basic balance information.
-        Only base58check-encoded addresses are supported.
 
-        Parameters:
-            address (str): The Evrmore address to check.
-            includeassets (bool): Return asset balances
+        Args:
+            addresses (str | list[str] | dict):
+                - Single base58check address string, OR
+                - List of base58check addresses, OR
+                - Dict of the form {"addresses": [...]}.
+            include_assets (bool, optional):
+                If True, expanded result includes asset balances.
+                Default is False (returns only EVR summary).
 
         Returns:
-            dict: A dictionary containing:
-                - "balance" (str): The current balance of the address in satoshis.
-                - "received" (str): The total amount received by the address, in satoshis (includes change).
-            If an error occurs or the address is invalid, the dictionary will contain an "error" key.
+            dict | list[dict] | str:
+                - If include_assets=False:
+                  {"balance": "<satoshis>", "received": "<satoshis>"}
+                - If include_assets=True:
+                  [{"assetName": "EVR"|"ASSET", "balance": "<satoshis>", "received": "<satoshis>"}, ...]
+                - If unexpected shape: raw string.
+                - If no output: "No data returned."
+                - On error: "Error: <stderr or exception>"
 
         Example:
-            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass",
-            ... testnet=True)
-            >>> result = rpc.getaddressbalance("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", True)
+            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore",
+            ...                       rpc_user="user", rpc_pass="pass", testnet=True)
+            >>> result = rpc.getaddressbalance("n3pUp4uT58hTtATHGvmkBsGP9tzMn8ZAQs")
         """
+        # Shape addresses into the JSON object required by RPC
+        if isinstance(addresses, dict):
+            payload = addresses
+        elif isinstance(addresses, str):
+            payload = {"addresses": [addresses]}
+        else:
+            payload = {"addresses": list(addresses)}
 
-        # Prepare a JSON string with the address to be queried
-        query = json.dumps({
-            "addresses": [address]
-        })
+        # Build base command
+        command = self._build_command() + ["getaddressbalance", json.dumps(payload)]
 
-        # Build the command-line arguments for calling `getaddressbalance`
-        command = self._build_command() + [
-            "getaddressbalance",    # RPC command
-            query,                  # JSON-encoded address list
-            str(includeassets).lower()   # Boolean flag as a lowercase string
-        ]
+        # Append includeAssets if requested
+        if include_assets:
+            command.append("true")
 
         try:
-            # Execute the command using subprocess.run, capturing stdout/stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
 
-            if result.stdout:
-                try:
-                    # Attempt to parse the response from stdout as JSON
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed      # Return the parsed Python object
-                except json.JSONDecodeError:
-                    # If output is not valid JSON, return a descriptive error
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Handle the case where stdout is empty (no data for address)
-                return {"error": f"No data available for address {address}.  Verify the address exists"}
+            try:
+                parsed = json.loads(out)
+                return parsed
+            except json.JSONDecodeError:
+                # fallback: plain text / line-based
+                if "\n" in out:
+                    return [line.strip() for line in out.splitlines() if line.strip()]
+                return out
         except Exception as e:
-            # Catch all other exceptions and return them as errors
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
 
-
-    def getaddressdeltas(self, address, start=None, end=None, chaininfo=False, assetname=""):
+    def getaddressdeltas(self, addresses, start=None, end=None, chain_info=None, asset_name=None):
         """
-        Retrieve all change deltas (additions and subtractions) for a given Evrmore address.
+        Return all balance/asset deltas for the given address list (addressindex must be enabled).
 
-        Queries the Evrmore blockchain for a detailed history of balance changes for a specific address,
-        optionally filtered by block height range and asset type. Requires the node to be running with
-        `addressindex` enabled.
-
-        Parameters:
-            address (str): The base58check-encoded address to query deltas for.
-            start (int, optional): The starting block height for filtering results (inclusive). If None, includes from genesis.
-            end (int, optional): The ending block height for filtering results (inclusive). If None, includes up to the tip.
-            chaininfo (bool, optional): If True, includes chain information in the results (applies only when start and end are both specified).
-            assetname (str, optional): If given, filters for deltas related to the specified asset name (default is EVR).
+        Args:
+            addresses (list[str]): One or more base58check addresses.
+            start (int | None): Start block height (inclusive).
+            end (int | None): End block height (inclusive).
+            chain_info (bool | None): Include chain info in results (only applied when both
+                `start` and `end` are provided).
+            asset_name (str | None): Limit deltas to a particular asset (use e.g. "EVR" for EVR).
 
         Returns:
-            list of dict: Each dictionary describes a change ("delta") with the following keys:
-                - "assetName" (str): The asset associated with the delta (e.g., "EVR" for native coin)
-                - "satoshis" (int): The difference in satoshis (can be negative or positive)
-                - "txid" (str): The transaction ID related to the change
-                - "index" (int): The input or output index in the transaction
-                - "height" (int): The block height at which this change occurred
-                - "address" (str): The base58check-encoded address (same as queried)
-            If no data is found or an error occurs, returns a dictionary with an "error" key.
+            list | dict | str: Parsed JSON result on success, "No data returned." if empty,
+            or "Error: <message>" on failure.
 
         Example:
-            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/path", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> deltas1 = rpc.getaddressdeltas("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX")
-            >>> deltas2 = rpc.getaddressdeltas("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", start=100000, end=150000, chaininfo=True)
-            >>> deltas3 = rpc.getaddressdeltas("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", assetname="MY_ASSET")
+            >>> rpc.getaddressdeltas(
+            ...     ["12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"],
+            ...     start=100000, end=101000, chain_info=True
+            ... )
         """
 
-        # Construct a JSON-encoded string with parameters for the RPC call
-        query = json.dumps({
-            "addresses": [address],              # List of addresses to query
-            "start": start,                      # Block height to start from (must be >= 1)
-            "end": end,                          # Block height to end at
-            "chainInfo": str(chaininfo).lower(), # Include chain info as 'true'/'false' string
-            "assetName": assetname               # Filter deltas by asset name
-        })
+        if not addresses or not isinstance(addresses, (list, tuple)):
+            return 'Error: "addresses" must be a non-empty list of strings'
 
-        # Append the RPC command and parameters to the base CLI command
-        command = self._build_command() + [
-            "getaddressdeltas",  # The requested RPC method
-            query                # JSON string of parameters
+        payload = {"addresses": [str(a) for a in addresses]}
+
+        # Optional height window
+        if start is not None:
+            payload["start"] = int(start)
+        if end is not None:
+            payload["end"] = int(end)
+
+        # chainInfo is only meaningful if both start and end are set
+        if (start is not None) and (end is not None) and (chain_info is not None):
+            payload["chainInfo"] = bool(chain_info)
+
+        # Optional asset filter
+        if asset_name is not None:
+            payload["assetName"] = str(asset_name)
+
+        args = [
+            "getaddressdeltas",
+            json.dumps(payload, separators=(",", ":")),
         ]
+        command = self._build_command() + args
 
         try:
-            # Run the CLI command, capturing standard output and errors
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-            if result.stdout:
-                try:
-                    # Attempt to load the JSON response from stdout
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the parsed data structure
-                except json.JSONDecodeError:
-                    # Return raw output if JSON parsing failed
-                    return {"error": "Recevied non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Handle the case where no data was returned (empty output)
-                return {"error": f"No data available for address {address}.  Verify address exists"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # If there was an error running the command, return the error message
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
 
-    def getaddressmempool(self, address, includeassets=False):
+    def getaddressmempool(self, addresses, include_assets=None):
         """
-        Returns all mempool deltas for the specified address.
+        Returns all mempool deltas for the given address(es).
+        (Requires addressindex to be enabled.)
 
-        Queries the Evrmore node using the `getaddressmempool` RPC command.
-        This command requires the `addressindex` to be enabled on the node.
 
-        Parameters:
-            address (str): The base58check-encoded Evrmore address to query.
-            includeassets (bool, optional): If True, include asset deltas in the response.
-                Defaults to False.
+        Args:
+            addresses (list): List of base58check-encoded addresses.
+            include_assets (bool | None, optional): If True, return an expanded result
+                that includes asset deltas.
 
         Returns:
-            list[dict] or dict:
-                If successful, returns a list of dictionaries―each containing:
-                    - "address" (str): Queried address
-                    - "assetName" (str): Name of associated asset ("EVR" for Evrmore)
-                    - "txid" (str): Related transaction ID
-                    - "index" (int): Input or output index
-                    - "satoshis" (int): Satoshi difference (amount)
-                    - "timestamp" (int): Time tx entered the mempool (unix seconds)
-                    - "prevtxid" (str, optional): Previous transaction ID (if spending)
-                    - "prevout" (str, optional): Previous transaction output index (if spending)
-
-                If there is an error or no data, returns a dictionary containing an "error" key
-                and related error info.
+            list | str:
+                - On success: a list of mempool delta objects (parsed from JSON).
+                - If daemon returns plain text: that text.
+                - On error: "Error: <node stderr or exception message>"
 
         Example:
-            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> mempool1 = rpc.getaddressmempool("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX")
-            >>> mempool2 = rpc.getaddressmempool("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", includeassets=True)
-
-        Note:
-            - Requires the `addressindex` feature enabled on your Evrmore node.
-            - Only supports base58check encoded addresses.
+            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore",
+            ...                       rpc_user="user", rpc_pass="pass", testnet=True)
+            >>> rpc.getaddressmempool(["12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"])
+            >>> rpc.getaddressmempool(["12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"], include_assets=True)
         """
-
-        # Create a JSON object with the address to query the mempool for
-        query = json.dumps({
-            "addresses": [address]  # List of addresses to search in the mempool
-        })
-
-        # Build the command-line arguments for the external tool call
-        command = self._build_command() + [
-            "getaddressmempool",          # RPC method name
-            query,                        # The address parameter as a JSON string
-            str(includeassets).lower()    # Optional flag for asset inclusion, as 'true' or 'false'
-        ]
-
         try:
-            # Execute the command and capture output and errors
+            # Build positional args exactly like the CLI expects:
+            # 1) JSON object: {"addresses": [...]}
+            # 2) Optional boolean: includeAssets
+            addr_obj = {"addresses": list(addresses)}
+            args = [
+                "getaddressmempool",
+                json.dumps(addr_obj),
+            ]
+
+            if include_assets is not None:
+                args.append("true" if include_assets else "false")
+
+            command = self._build_command() + args
+
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-            if result.stdout:
-                try:
-                    # Try to parse the standard output as JSON
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed  # Return the parsed Python object
-                except json.JSONDecodeError:
-                    # If the output isn't valid JSON, return the error and raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # Handle the case when no data was returned for the address
-                return {"error": f"No data available for address {address}.  Verify address exists"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+
+            # Try to parse JSON; if it isn't JSON, return the raw text.
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
+
         except Exception as e:
-            # Catch and report any exception that occurs during command execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-    def getaddresstxids(self, address, includeassets=False):
+    def getaddresstxids(self, addresses, start=None, end=None, include_assets=None):
         """
-        Returns the transaction IDs (txids) for the specified address.
+        Return transaction IDs involving the given address(es) (addressindex must be enabled).
 
-        This method queries the Evrmore node using the `getaddresstxids` RPC command and requires that addressindex is enabled.
-
-        Arguments:
-            address (str): The base58check encoded address to query for transaction IDs.
-            includeassets (bool, optional):
-                If True, will return an expanded result that includes asset transactions.
-                Defaults to False.
+        Args:
+            addresses (list[str]): One or more base58check addresses.
+            start (int | None): Optional start block height.
+            end (int | None): Optional end block height.
+            include_assets (bool | None): If True, return an expanded result including asset txs.
 
         Returns:
-            list: A list of transaction IDs (str) associated with the given address.
-            dict: If an error occurs, returns a dictionary with an "error" key and a descriptive message.
+            list | str:
+                - Parsed JSON list of txids (or expanded objects when include_assets=True) on success.
+                - "No data returned." if the node returns empty stdout.
+                - "Error: <message>" on failure.
 
         Example:
-            >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> result1 = rpc.getaddresstxids("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", includeassets=True)
-
-        Note:
-            This method only takes one address per call, wrapped as a list for compatibility with the underlying API.
+            >>> rpc.getaddresstxids(
+            ...     ["12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"],
+            ...     start=100000, end=101000, include_assets=True
+            ... )
         """
 
-        # Construct the JSON query with the target address (must be a list as required by the underlying API)
-        query = json.dumps({
-            "addresses": [address]
-        })
+        # Basic validation to avoid confusing node errors
+        if not addresses or not isinstance(addresses, (list, tuple)):
+            return 'Error: "addresses" must be a non-empty list of strings'
 
-        # Build the full CLI command to call 'getaddresstxids' with the query and includeassets flag
-        command = self._build_command() + [
+        # Required payload
+        payload = {"addresses": [str(a) for a in addresses]}
+
+        # Optional fields (apply only when provided)
+        optional_spec = [
+            ("start", start, int),
+            ("end", end, int),
+        ]
+        for key, value, caster in optional_spec:
+            if value is not None:
+                try:
+                    payload[key] = caster(value)
+                except Exception:
+                    payload[key] = str(value)
+
+        args = [
             "getaddresstxids",
-            query,
-            str(includeassets).lower()  # Converts the Python boolean to "true"/"false" for CLI
+            json.dumps(payload, separators=(",", ":")),
         ]
 
+        # Optional second positional param
+        if include_assets is not None:
+            args.append("true" if bool(include_assets) else "false")
+
+        command = self._build_command() + args
+
         try:
-            # Run the CLI command, capturing stdout and stderr
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-            if result.stdout:
-                try:
-                    # Attempt to parse the command output as JSON and return the parsed data
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # Handle cases where output is not valid JSON
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there's no output, likely no transactions exist for the given address
-                return {"error": f"No data available for address {address}.  Verify address exists"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # Catch and return any exceptions that occurred during execution
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-
-
-    def getaddressutxos(self, address, chaininfo=False, assetname='*'):
+    def getaddressutxos(
+            self,
+            addresses: list[str],
+            chain_info: bool = False,
+            asset_name: str = "",
+    ):
         """
-                Returns all unspent outputs (UTXOs) for a given address.
+        Return all unspent outputs for one or more addresses (addressindex required).
 
-                Requires the Evrmore node to be running with addressindex enabled.
+        Args:
+            addresses (list[str]): Base58check addresses to query.
+            chain_info (bool, optional): Include chain info in results. Defaults to False.
+            asset_name (str, optional): Specific asset name to filter by; use "" for EVR, "*" for all assets.
+                Defaults to "".
 
-                Parameters:
-                    address (str):
-                        The base58check encoded address to query for UTXOs.
+        Returns:
+            list | dict | str: Parsed JSON (list of UTXOs or object with chain info), raw text if non-JSON,
+            or standardized error string on failure.
 
-                    chaininfo (bool, optional):
-                        If True, also include chain info with results (default: False).
+        Example:
+            >>> rpc.getaddressutxos(["12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"], chain_info=True, asset_name="MY_ASSET")
+        """
+        # Build the single JSON argument the daemon expects; always include keys to avoid ambiguity.
+        payload = {
+            "addresses": [str(a) for a in addresses],
+            "chainInfo": bool(chain_info),
+            "assetName": str(asset_name),  # "" for EVR, "*" for all, or a specific asset
+        }
 
-                    assetname (str, optional):
-                        An asset name string to filter UTXOs by a specific asset instead of EVR.
-                        Use '*' to fetch for all assets (default: '*').
-
-                Returns:
-                    list of dict:
-                        Each dict contains:
-                            - 'address': The address queried.
-                            - 'assetName': The name of the asset for the UTXO (EVR for regular coins).
-                            - 'txid': The output transaction ID.
-                            - 'height': The block height of the UTXO.
-                            - 'outputIndex': The output index in the transaction.
-                            - 'script': The script in hex encoding.
-                            - 'satoshis': The value of the UTXO in satoshis.
-
-                    dict:
-                        In case of an error, a dictionary with an 'error' description and (optionally) the raw output.
-
-                Example:
-                >>> rpc = AddressindexRPC(cli_path="evrmore-cli", datadir="/evrmore", rpc_user="user", rpc_pass="pass", testnet=True)
-                >>> utxos1 = rpc.getaddressutxos("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX")
-                >>> utxos2 = rpc.getaddressutxos("12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX", assetname="MY_ASSET")
-                >>> utxos3 = rpc.getaddressutxos("invalid_address")
-                """
-
-        # Prepare the request payload as a JSON string
-        query = json.dumps({
-            "addresses": [address],              # List of addresses to query
-            "chainInfo": str(chaininfo).lower(), # Include chain info as 'true'/'false' string
-            "assetName": assetname               # Filter UTXOs by asset name
-        })
-
-        # Build the full CLI command, specifying the method and the JSON parameters
-        command = self._build_command() + [
-            "getaddressutxos",   # RPC method name
-            query                # JSON parameters as a string
-        ]
+        args = ["getaddressutxos", json.dumps(payload)]
+        command = self._build_command() + args
 
         try:
-            # Execute the command as a subprocess, capturing standard output and error
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-            if result.stdout:
-                try:
-                    # Parse the output as JSON if possible
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If output isn't valid JSON, return an error dict with raw output
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                # If there's no output, return an error indicating no data is available
-                return {"error": f"No data available for address {address}.  Verify address exists"}
+            out = (result.stdout or "").strip()
+            if not out:
+                return "No data returned."
+            try:
+                return json.loads(out)
+            except json.JSONDecodeError:
+                return out
         except Exception as e:
-            # If command execution fails, return the exception string as an error
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
+

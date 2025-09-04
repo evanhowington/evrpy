@@ -35,7 +35,7 @@ def test_generatetoaddress():
 
     result = rpc.generatetoaddress(
         nblocks=4,
-        address="n2drG5vkvkgyXDbgYLAJHcriR2bfitXE6C",
+        address="mvCjXuWeomRpgrAhZ53CXJMd7BGfEhnzQC",
         maxtries=1000000000
     )
 
@@ -57,7 +57,7 @@ def test_setgenerate():
 
     result = rpc.setgenerate(
         generate=False,
-        num_processors=2
+        genproclimit=2
     )
 
     print(f"result:\n{result}")

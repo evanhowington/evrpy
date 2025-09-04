@@ -51,176 +51,117 @@ class GeneratingRPC:
             self.testnet  # Boolean: use testnet or not
         )
 
-    def generate(self, nblocks=1, maxtries=1000000):
+    def generate(self, nblocks, maxtries=None):
         """
-        Mine new blocks to a wallet address immediately.
+        Mine up to `nblocks` blocks immediately to an address in the wallet.
 
-        Executes the `generate` RPC command via the Evrmore CLI. This command triggers immediate
-        mining of up to `nblocks` blocks using an address in the local wallet. It returns the list
-        of newly generated block hashes.
-
-        Parameters:
-            nblocks (int, optional): Number of blocks to mine immediately (default is 1).
-            maxtries (int, optional): Maximum number of iterations to attempt mining
-                                      (default is 1,000,000). Higher values may be needed if blocks are slow to solve.
+        Args:
+            nblocks (int):
+                Number of blocks to generate immediately.
+            maxtries (int, optional):
+                Maximum number of iterations to try. Defaults to 1,000,000.
 
         Returns:
-            list of str: A list of block hashes for the successfully mined blocks.
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            list:
+                A list of block hashes generated.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> blocks = rpc.generate(nblocks=1)
+            >>> rpc.generate(11)
+            ['0000000000000000000a7d3...', '0000000000000000001b8c4...']
         """
-        # Build the CLI command for mining blocks
-        command = self._build_command() + [
-            "generate",
-            str(nblocks),
-            str(maxtries)
-        ]
+        optional_spec = [maxtries]
+
+        command_list = self._build_command() + ["generate", str(nblocks)]
+        for arg in optional_spec:
+            command_list.append(str(arg) if arg is not None else "")
 
         try:
-            # Execute the command and capture the output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse JSON-formatted list of block hashes
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    # If output isn't valid JSON, return raw output as an error
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                return {"error": "No info available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return json.loads(result.stdout.strip())
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def generatetoaddress(self, nblocks=1, address="no_good_default_address", maxtries=1000000):
+    def generatetoaddress(self, nblocks, address, maxtries=None):
         """
-        Mine new blocks immediately to a specific address.
+        Mine blocks immediately to a specified address.
 
-        Executes the `generatetoaddress` RPC command via the Evrmore CLI. This mines `nblocks` blocks
-        and sends the coinbase rewards to the specified address.
-
-        Parameters:
-            nblocks (int, optional): Number of blocks to mine (default: 1).
-            address (str): The destination address for block rewards. Must be a valid Evrmore address.
-            maxtries (int, optional): Maximum attempts to find a valid block (default: 1,000,000).
+        Args:
+            nblocks (int):
+                Number of blocks to generate immediately.
+            address (str):
+                The Evrmore address that will receive the newly generated coins.
+            maxtries (int, optional):
+                Maximum number of iterations to try. Defaults to 1,000,000.
 
         Returns:
-            list of str: A list of block hashes that were successfully mined and sent to the address.
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            list:
+                A list of block hashes generated.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> myaddr = "someValidEVRTestnetAddress"
-            >>> blocks = rpc.generatetoaddress(nblocks=1, address=myaddr)
+            >>> rpc.generatetoaddress(11, "mzKoqPMQcfFGStsMXfMEGMqNnGegm91vAF")
+            ['0000000000000000000a7d3...', '0000000000000000001b8c4...']
         """
-        # Construct the CLI command to mine blocks to a specific address
-        command = self._build_command() + [
-            "generatetoaddress",
-            str(nblocks),
-            str(address),
-            str(maxtries)
-        ]
+        optional_spec = [maxtries]
+
+        command_list = self._build_command() + ["generatetoaddress", str(nblocks), str(address)]
+        for arg in optional_spec:
+            command_list.append(str(arg) if arg is not None else "")
 
         try:
-            # Run the CLI command and capture stdout and stderr
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Parse block hashes as a JSON array
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                return {"error": "No info available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return json.loads(result.stdout.strip())
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def getgenerate(self):
         """
-        Check whether the node is set to generate (mine) blocks automatically.
-
-        Executes the `getgenerate` RPC command via the Evrmore CLI. This returns a boolean value
-        indicating whether the node is configured to mine (either via `-gen` or `setgenerate true`).
+        Check if the server is set to generate coins.
 
         Returns:
-            bool: True if the node is set to generate blocks, False otherwise.
-
-            On failure, returns:
-                - {"error": "Received non-JSON output", "raw": <raw output>}
-                - {"error": "No info available.  Check your wallet/node is running."}
-                - {"error": <exception message>} if the subprocess fails
+            bool:
+                True if the server is set to generate coins, False otherwise.
+                Returns "Error: <message>" if the command fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> gen = rpc.getgenerate()
+            >>> rpc.getgenerate()
+            False
         """
-        # Build CLI command to check mining state
-        command = self._build_command() + ["getgenerate"]
+        command_list = self._build_command() + ["getgenerate"]
 
         try:
-            # Run the command and capture output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            if result.stdout:
-                try:
-                    # Expecting "true" or "false" -> parse as JSON boolean
-                    parsed = json.loads(result.stdout.strip())
-                    return parsed
-                except json.JSONDecodeError:
-                    return {"error": "Received non-JSON output", "raw": result.stdout.strip()}
-            else:
-                return {"error": "No info available.  Check your wallet/node is running."}
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return json.loads(result.stdout.strip())
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
-    def setgenerate(self, generate=True, num_processors=1):
+    def setgenerate(self, generate: bool, genproclimit: int = None):
         """
-        Enable or disable block generation (mining) on the Evrmore node.
+        Set coin generation on or off, with optional processor limit.
 
-        Executes the `setgenerate` RPC command via the Evrmore CLI. This turns mining on or off
-        and sets a limit for how many processor cores may be used.
-
-        Parameters:
-            generate (bool, optional): Whether to enable (`True`) or disable (`False`) mining (default: True).
-            num_processors (int, optional): Maximum number of processor threads to use.
-                                            Set to -1 for unlimited (default: 1).
+        Args:
+            generate (bool): True to enable generation, False to disable.
+            genproclimit (int, optional): Number of processors to use. -1 for unlimited. Defaults to None.
 
         Returns:
-            str: A message indicating that generation was enabled or disabled.
-
-            On failure, returns:
-                - {"error": <exception message>} if the subprocess fails
+            str: Command output if successful, or "Error: <message>" if it fails.
 
         Example:
-            >>> rpc = EvrmoreRPC(cli_path="evrmore-cli", datadir="/home/aethyn/.evrmore-test/testnet1", rpc_user="neubtrino_testnet", rpc_pass="pass_testnet", testnet=True)
-            >>> result = rpc.setgenerate(True, 2)
+            >>> rpc.setgenerate(True, 1)
+            'Generation enabled with 1 processor'
+            >>> rpc.setgenerate(False)
+            'Generation disabled'
         """
-        # Build the CLI command
-        command = self._build_command() + [
-            "setgenerate",
-            str(generate).lower(),
-            str(num_processors)
-        ]
+        optional_spec = [genproclimit]
+        args = [str(generate).lower()] + [str(arg) if arg is not None else "" for arg in optional_spec]
+
+        command_list = self._build_command() + ["setgenerate"] + args
 
         try:
-            # Run the command and capture any output
-            result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # No stdout is expected from setgenerate if successful
-            return f"Mining {'enabled' if generate else 'disabled'} with processor limit {num_processors}"
+            result = run(command_list, stdout=PIPE, stderr=PIPE, text=True, check=True)
+            return result.stdout.strip()
         except Exception as e:
-            return {"error": str(e)}
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
+

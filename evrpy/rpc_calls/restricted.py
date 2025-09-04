@@ -53,136 +53,82 @@ class RestrictedRPC:
 
     def viewmyrestrictedaddresses(self):
         """
-        Lists all wallet-owned addresses that have a restriction event (restricted or derestricted).
-
-        Invokes the `viewmyrestrictedaddresses` RPC and returns the wallet’s addresses that have
-        experienced a restriction status change. For each address, the **most recent** event
-        (restriction or derestriction) is returned along with the asset name and the UTC timestamp.
-
-        Mirrors native help:
-
-            viewmyrestrictedaddresses
-
-        Result (array of objects):
-            {
-              "Address:"                   (string) The address that was restricted
-              "Asset Name:"                (string) The asset that the restriction applies to
-              "[Restricted|Derestricted]:" (string) UTC datetime of the event in the format "YY-mm-dd HH:MM:SS"
-                                            (Only the most recent restriction/derestriction event will be returned for each address)
-            }, ...
+        View all addresses this wallet owns that have been restricted.
 
         Returns:
-            list[dict] | str:
-                - On success: a list of dictionaries, each containing:
-                    * "Address:" (str)
-                    * "Asset Name:" (str)
-                    * Either "Restricted:" or "Derestricted:" (str, UTC timestamp "YY-mm-dd HH:MM:SS")
-                - If output is not valid JSON, returns the raw string.
-                - On error, returns "Error: <message>".
-
-        Notes:
-            - The third key is mutually exclusive: you will get **either** "Restricted:" **or**
-              "Derestricted:" for each object, indicating the most recent event type.
-            - Timestamps are UTC and use a two-digit year format ("YY-mm-dd HH:MM:SS").
-            - No arguments; this inspects the **current wallet** only.
+            list[dict] | dict | str:
+                - List of restriction dictionaries on success (parsed JSON),
+                - raw text if daemon does not return JSON,
+                - or "Error: ..." on failure.
 
         Example:
-            >>> rpc = RestrictedRPC(cli_path="evrmore-cli", datadir="/evrmore",rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> rows = rpc.viewmyrestrictedaddresses()
+            >>> rpc.viewmyrestrictedaddresses()
+            [
+                {
+                    "Address": "address1",
+                    "Asset Name": "$ASSET1",
+                    "Restricted": "25-09-04 12:00:00"
+                },
+                {
+                    "Address": "address2",
+                    "Asset Name": "$ASSET2",
+                    "Derestricted": "25-09-03 09:30:00"
+                }
+            ]
         """
-
-        # Build the CLI command with auth/network flags + RPC name (no parameters).
-        command = self._build_command() + [
-            "viewmyrestrictedaddresses",
-        ]
+        command = self._build_command() + ["viewmyrestrictedaddresses"]
 
         try:
-            # Execute the RPC; capture stdout/stderr. Non-zero exit codes raise CalledProcessError.
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Normalize stdout; guard against None and strip whitespace/newlines for parsing.
             out = (result.stdout or "").strip()
             if not out:
-                # The RPC returned nothing (unexpected on success). Bubble up an informative message.
-                return "No restricted address events found."
-
-            # Attempt to parse JSON. Expected form is a list of objects.
+                return "No data returned."
             try:
-                parsed = json.loads(out)
-                # Return parsed JSON as-is (list[dict] or dict). Callers can iterate or serialize further.
-                return parsed
+                return json.loads(out)
             except json.JSONDecodeError:
-                # Node returned non-JSON (rare). Surface raw string for transparency.
                 return out
-
         except Exception as e:
-            # Concise error reporting (matches your preferred style).
-            return f"Error: {e}"
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
 
     def viewmytaggedaddresses(self):
         """
-        Lists all wallet-owned addresses that have a tag assignment event (assigned or removed).
+        View all addresses this wallet owns that have been tagged.
 
-        Invokes the `viewmytaggedaddresses` RPC and returns the wallet’s addresses that have
-        experienced a tag status change. For each address, the **most recent** event
-        (tag assigned or tag removed) is returned along with the tag (asset) name and the UTC timestamp.
-
-        Mirrors native help:
-
-            viewmytaggedaddresses
-
-        Result (array of objects):
-            {
-              "Address:"               (string) The address that was tagged
-              "Tag Name:"              (string) The asset name (qualifier tag, typically starts with '#')
-              "[Assigned|Removed]:"    (string) UTC datetime of the event in the format "YY-mm-dd HH:MM:SS"
-                                       (Only the most recent tagging/untagging event will be returned for each address)
-            }, ...
+        Args:
+            None
 
         Returns:
-            list[dict] | str:
-                - On success: a list of dictionaries, each containing:
-                    * "Address:" (str)
-                    * "Tag Name:" (str)
-                    * Either "Assigned:" or "Removed:" (str, UTC timestamp "YY-mm-dd HH:MM:SS")
-                - If output is not valid JSON, returns the raw string.
-                - On error, returns "Error: <message>".
-
-        Notes:
-            - The third key is mutually exclusive per object: you will get **either** "Assigned:"
-              **or** "Removed:", indicating the most recent event type for that address.
-            - Timestamps are UTC and use a two-digit year format ("YY-mm-dd HH:MM:SS").
-            - No arguments; this inspects the **current wallet** only.
-            - “Tag Name:” refers to a qualifier-asset tag (e.g., "#KYC").
+            list[dict] | dict | str:
+                - Parsed JSON (list/dict) on success,
+                - raw text if the daemon does not return JSON,
+                - or "Error: ..." on failure.
 
         Example:
-            >>> rpc = RestrictedRPC(cli_path="evrmore-cli", datadir="/evrmore",rpc_user="user", rpc_pass="pass", testnet=True)
-            >>> rows = rpc.viewmytaggedaddresses()
+            >>> rpc.viewmytaggedaddresses()
+            [
+                {
+                    "Address": "EVR...abc",
+                    "Tag Name": "#CUSTOMER",
+                    "Assigned": "25-09-04 12:00:00"
+                },
+                {
+                    "Address": "EVR...xyz",
+                    "Tag Name": "#ALLOWLIST",
+                    "Removed": "25-09-03 09:30:00"
+                }
+            ]
         """
-
-        # Build the CLI command with auth/network flags + RPC name (no parameters).
-        command = self._build_command() + [
-            "viewmytaggedaddresses",
-        ]
+        command = self._build_command() + ["viewmytaggedaddresses"]
 
         try:
-            # Execute the RPC; capture stdout/stderr. Non-zero exit codes raise CalledProcessError.
             result = run(command, stdout=PIPE, stderr=PIPE, text=True, check=True)
-
-            # Normalize stdout; guard against None and trim whitespace/newlines for parsing.
             out = (result.stdout or "").strip()
             if not out:
-                # The RPC returned nothing (unexpected on success). Bubble up an informative message.
-                return "No tagged address events found."
-
-            # Attempt to parse JSON. Expected form is a list of objects (one per address).
+                return "No data returned."
             try:
-                parsed = json.loads(out)
-                return parsed
+                return json.loads(out)
             except json.JSONDecodeError:
-                # Node returned non-JSON (rare). Surface raw string for transparency.
                 return out
-
         except Exception as e:
-            # Concise error reporting (matches your preferred style).
-            return f"Error: {e}"
+            return f"Error: {getattr(e, 'stderr', str(e)) or str(e)}".strip()
+
